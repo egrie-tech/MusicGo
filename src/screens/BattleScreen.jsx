@@ -37,6 +37,8 @@ export default function BattleScreen() {
       playerHp, enemyHp,
       playerActive: team[0].id,
       enemyActive: enemyTeam[0].id,
+      playerShields: 2,
+      enemyShields: 2,
       turn: 'player',
       log: ['Battle start!'],
       status: 'active',
@@ -55,14 +57,26 @@ export default function BattleScreen() {
     const log = [...battleState.log]
 
     // player attack
-    let dmg = Math.round((atk.stats.energy + atk.stats.dance) / 4 + Math.random() * 15)
-    if (move === 'special') dmg = Math.round(dmg * 1.6)
     if (move === 'heal') {
       pHp[atk.id] = Math.min(makeHp(atk), pHp[atk.id] + 30)
       log.push(`${atk.title} healed 30 HP!`)
     } else {
+      const eff = effectiveness(atk.type || atk.genre, def.type || def.genre)
+      let dmg = Math.round((atk.stats.energy + atk.stats.dance) / 4 + Math.random() * 15)
+      if (move === 'charged') { dmg = Math.round(dmg * 2.2); log.push(`${atk.title} used Charged Move!`) }
+      else if (move === 'special') { dmg = Math.round(dmg * 1.6); log.push(`${atk.title} used Ultimate!`) }
+      else { log.push(`${atk.title} used Fast Attack!`) }
+      dmg = Math.round(dmg * eff)
+      if (eff > 1) log.push('Super effective!')
+      if (eff < 1) log.push('Not very effective...')
+      // shield check
+      if (move === 'charged' && (battleState.enemyShields || 0) > 0) {
+        battleState.enemyShields = (battleState.enemyShields || 0) - 1
+        dmg = 0
+        log.push(`${def.title} used a Protect Shield!`)
+      }
       eHp[def.id] = Math.max(0, eHp[def.id] - dmg)
-      log.push(`${atk.title} used ${move === 'special' ? 'Ultimate' : 'Attack'} on ${def.title} for ${dmg} dmg!`)
+      if (dmg > 0) log.push(`${def.title} took ${dmg} dmg!`)
     }
 
     // check enemy faint
@@ -89,7 +103,18 @@ export default function BattleScreen() {
       const pHp2 = { ...bs.playerHp }
       const eHp2 = { ...bs.enemyHp }
       const log2 = [...bs.log]
-      const eDmg = Math.round((eAtk.stats.energy + eAtk.stats.dance) / 4 + Math.random() * 12)
+      const eEff = effectiveness(eAtk.type || eAtk.genre, pDef.type || pDef.genre)
+      let eDmg = Math.round((eAtk.stats.energy + eAtk.stats.dance) / 4 + Math.random() * 12)
+      if (Math.random() < 0.3) {
+        // charged
+        eDmg = Math.round(eDmg * 2)
+        if (bs.playerShields > 0) {
+          bs.playerShields--
+          eDmg = 0
+          log2.push(`${pDef.title} used a Protect Shield!`)
+        }
+      }
+      eDmg = Math.round(eDmg * eEff)
       pHp2[pDef.id] = Math.max(0, pHp2[pDef.id] - eDmg)
       log2.push(`${eAtk.title} attacked ${pDef.title} for ${eDmg} dmg!`)
 
@@ -105,10 +130,10 @@ export default function BattleScreen() {
         }
         nextPlayerActive = remaining[0]
       }
-      setBattle({ ...bs, playerHp: pHp2, enemyHp: eHp2, playerActive: nextPlayerActive, enemyActive: nextEnemyActive, turn: 'player', log: log2, status: 'active' })
+      setBattle({ ...bs, playerHp: pHp2, enemyHp: eHp2, playerActive: nextPlayerActive, enemyActive: nextEnemyActive, playerShields: bs.playerShields, enemyShields: bs.enemyShields, turn: 'player', log: log2, status: 'active' })
     }, 700)
 
-    setBattle({ ...battleState, playerHp: pHp, enemyHp: eHp, enemyActive: nextEnemyActive, turn: 'enemy', log })
+    setBattle({ ...battleState, playerHp: pHp, enemyHp: eHp, enemyActive: nextEnemyActive, playerShields: battleState.playerShields, enemyShields: battleState.enemyShields, turn: 'enemy', log })
   }
 
   const reset = () => {
@@ -198,10 +223,15 @@ export default function BattleScreen() {
         </div>
 
         {/* actions */}
-        <div className="grid grid-cols-3 gap-2">
-          <button disabled={battleState.turn !== 'player'} onClick={() => doAttack('attack')} className="py-3 rounded-2xl bg-slate-800 font-semibold text-sm disabled:opacity-40">Attack</button>
-          <button disabled={battleState.turn !== 'player'} onClick={() => doAttack('special')} className="py-3 rounded-2xl bg-fuchsia-600 font-semibold text-sm disabled:opacity-40">Ultimate</button>
-          <button disabled={battleState.turn !== 'player'} onClick={() => doAttack('heal')} className="py-3 rounded-2xl bg-green-600 font-semibold text-sm disabled:opacity-40">Heal</button>
+        <div className="grid grid-cols-4 gap-2">
+          <button disabled={battleState.turn !== 'player'} onClick={() => doAttack('attack')} className="py-3 rounded-2xl bg-slate-800 font-semibold text-xs disabled:opacity-40">Fast</button>
+          <button disabled={battleState.turn !== 'player'} onClick={() => doAttack('charged')} className="py-3 rounded-2xl bg-amber-600 font-semibold text-xs disabled:opacity-40">Charged</button>
+          <button disabled={battleState.turn !== 'player'} onClick={() => doAttack('special')} className="py-3 rounded-2xl bg-fuchsia-600 font-semibold text-xs disabled:opacity-40">Ultimate</button>
+          <button disabled={battleState.turn !== 'player'} onClick={() => doAttack('heal')} className="py-3 rounded-2xl bg-green-600 font-semibold text-xs disabled:opacity-40">Heal</button>
+        </div>
+        <div className="flex justify-between text-[10px] text-slate-400">
+          <span>Your shields: {battleState.playerShields || 0}</span>
+          <span>Enemy shields: {battleState.enemyShields || 0}</span>
         </div>
         {battleState.turn === 'enemy' && <p className="text-center text-xs text-slate-400">Enemy thinking...</p>}
       </div>

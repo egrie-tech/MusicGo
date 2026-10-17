@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useStore, xpToNext } from '../store/gameStore'
+import { TEAMS } from '../data/types'
 import { TRACKS } from '../data/tracks'
 import { Edit3, Trophy, Music, MapPin, Flame } from 'lucide-react'
 
@@ -11,6 +13,10 @@ export default function ProfileScreen() {
   const setName = useStore(s => s.setName)
   const setAvatar = useStore(s => s.setAvatar)
   const reset = useStore(s => s.reset)
+  const navigate = useNavigate()
+  const setTeam = useStore(s => s.setTeam)
+  const claimDaily = useStore(s => s.claimDaily)
+  const daily = useStore(s => s.daily) || {}
   const [editing, setEditing] = useState(false)
   const [name, setNameInput] = useState(profile.name)
 
@@ -88,6 +94,36 @@ export default function ProfileScreen() {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Daily claim */}
+      <div className="glass rounded-2xl p-3 flex items-center justify-between">
+        <div>
+          <div className="text-sm font-semibold">Daily Reward</div>
+          <div className="text-[10px] text-slate-400">Streak: {daily.streak || 1} days · {daily.claimed ? 'Claimed today' : 'Available!'}</div>
+        </div>
+        <button onClick={() => { const ok = claimDaily(); if (ok) alert('Daily claimed!') }} disabled={daily.claimed} className="px-3 py-2 rounded-xl bg-amber-500/20 text-amber-300 text-xs font-bold disabled:opacity-40">Claim</button>
+      </div>
+
+      {/* Team selection */}
+      <div className="glass rounded-2xl p-3">
+        <h3 className="text-sm font-semibold mb-2">Team</h3>
+        <div className="flex gap-2">
+          {TEAMS.map(t => (
+            <button key={t.id} onClick={() => setTeam(t.id)} className={`flex-1 rounded-xl p-2 text-center border ${profile.team === t.id ? 'border-2' : 'border-slate-700'}`} style={profile.team === t.id ? { borderColor: t.color } : {}}>
+              <div className="text-xl">{t.icon}</div>
+              <div className="text-[9px] mt-1" style={{ color: t.color }}>{t.name}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Quick links */}
+      <div className="grid grid-cols-2 gap-2">
+        <button onClick={() => navigate('/eggs')} className="glass rounded-xl p-3 text-sm font-semibold">🥚 Eggs</button>
+        <button onClick={() => navigate('/buddy')} className="glass rounded-xl p-3 text-sm font-semibold">🐾 Buddy</button>
+        <button onClick={() => navigate('/research')} className="glass rounded-xl p-3 text-sm font-semibold">📋 Research</button>
+        <button onClick={() => navigate('/raids')} className="glass rounded-xl p-3 text-sm font-semibold">⚔️ Raids</button>
       </div>
 
       <button onClick={() => { if (confirm('Reset all progress?')) reset() }} className="w-full py-3 rounded-2xl bg-red-900/40 text-red-300 font-semibold text-sm">Reset Progress</button>

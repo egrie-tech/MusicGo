@@ -9,11 +9,26 @@ export const RARITY = {
   legendary: { label: 'Legendary', color: '#f59e0b', xp: 400, catchBase: 0.12 },
 }
 
-const t = (id, title, artist, album, genre, rarity, energy, dance, tempo, catchRate) => ({
-  id, title, artist, album, genre, rarity,
-  stats: { energy, dance, tempo, catchRate: catchRate ?? RARITY[rarity].catchBase },
+const MOVES = {
+  Pop: { fast: { name: 'Chorus', power: 8, type: 'Pop' }, charged: { name: 'Anthem', power: 35, type: 'Pop', energy: 50 } },
+  'Hip-Hop': { fast: { name: 'Flow', power: 9, type: 'Hip-Hop' }, charged: { name: 'Verse Drop', power: 40, type: 'Hip-Hop', energy: 55 } },
+  Rock: { fast: { name: 'Riff', power: 10, type: 'Rock' }, charged: { name: 'Solo', power: 45, type: 'Rock', energy: 60 } },
+  Electronic: { fast: { name: 'Beat', power: 7, type: 'Electronic' }, charged: { name: 'Drop', power: 50, type: 'Electronic', energy: 65 } },
+  Jazz: { fast: { name: 'Improv', power: 6, type: 'Jazz' }, charged: { name: 'Solo', power: 30, type: 'Jazz', energy: 45 } },
+  Classical: { fast: { name: 'Phrase', power: 5, type: 'Classical' }, charged: { name: 'Crescendo', power: 28, type: 'Classical', energy: 40 } },
+  Indie: { fast: { name: 'Strum', power: 7, type: 'Indie' }, charged: { name: 'Bridge', power: 32, type: 'Indie', energy: 50 } },
+  'R&B': { fast: { name: 'Groove', power: 8, type: 'R&B' }, charged: { name: 'Run', power: 38, type: 'R&B', energy: 55 } },
+  Latin: { fast: { name: 'Clave', power: 9, type: 'Latin' }, charged: { name: 'Salsa', power: 42, type: 'Latin', energy: 60 } },
+  'K-Pop': { fast: { name: 'Choreo', power: 9, type: 'K-Pop' }, charged: { name: 'Comeback', power: 48, type: 'K-Pop', energy: 65 } },
+}
+const t = (id, title, artist, album, genre, rarity, energy, dance, tempo, catchRate, evolvesTo = null, candyCost = 0) => ({
+  id, title, artist, album, genre, rarity, evolvesTo, candyCost,
+  type: genre,
+  moves: MOVES[genre],
+  stats: { energy, dance, tempo, catchRate: catchRate ?? RARITY[rarity].catchBase, cp: energy * 10 + dance * 5 + tempo, hp: 50 + energy },
   xp: RARITY[rarity].xp,
-  // deterministic hue for album art
+  candyReward: RARITY[rarity].xp,
+  buddyCandyPerKm: 1 + (RARITY[rarity].xp > 100 ? 1 : 0),
   hue: (id * 47 + genre.length * 13) % 360,
 })
 

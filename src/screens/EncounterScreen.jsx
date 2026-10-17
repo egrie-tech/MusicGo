@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../store/gameStore'
 import { TRACKS, RARITY } from '../data/tracks'
+import { WEATHER } from '../data/types'
 import { ITEMS, ITEM_BY_ID } from '../data/items'
 import { ArrowLeft, Target } from 'lucide-react'
 
@@ -29,6 +30,9 @@ export default function EncounterScreen() {
   const [marker, setMarker] = useState(0)
   const [direction, setDirection] = useState(1)
   const [speed, setSpeed] = useState(0.012)
+  const [curveball, setCurveball] = useState(false)
+  const [berryUsed, setBerryUsed] = useState(false)
+  const weather = useStore(s => s.weather)
   const rafRef = useRef(null)
   const lastRef = useRef(performance.now())
 
@@ -85,11 +89,26 @@ export default function EncounterScreen() {
     }
     const it = ITEM_BY_ID[useId]
     setPhase('throwing')
-    const bonus = inZone ? 1.6 : (Math.abs(marker - sweetSpot) < 0.22 ? 1.15 : 0.85)
-    const mult = (it?.mult || 1) * bonus
+    const dist = Math.abs(marker - sweetSpot)
+    let quality = 'Miss'
+    let qMult = 0.85
+    if (dist < 0.05) { quality = 'Excellent'; qMult = 2.0 }
+    else if (dist < 0.10) { quality = 'Great'; qMult = 1.6 }
+    else if (dist < 0.15) { quality = 'Nice'; qMult = 1.25 }
+    else if (dist < 0.22) { quality = 'OK'; qMult = 1.0 }
+    let mult = (it?.mult || 1) * qMult
+    if (curveball) mult *= 1.2
+    if (berryUsed) mult *= 1.5
+    // weather boost
+    const w = weather || {}
+    if (w.boost && w.boost.includes(track.genre)) mult *= 1.2
+    const critical = Math.random() < 0.05 && quality !== 'Miss'
+    if (critical) mult *= 2.5
     setTimeout(() => {
-      const res = catchTrack(track.id, mult)
-      setResult({ ...res, bonus, mult })
+      const res = catchTrack(track.id, mult, Math.random() < 0.01)
+      const fled = !res.success && Math.random() < 0.12
+      if (fled) removeDrop(drop.id)
+      setResult({ ...res, quality, mult, critical, fled })
       setPhase('result')
       if (res.success) markCaught(drop.id)
     }, 900)
@@ -101,7 +120,7 @@ export default function EncounterScreen() {
   }
 
   const close = () => {
-    if (result?.success) removeDrop(drop.id)
+    if (result?.success || result?.fled) removeDrop(drop.id)
     navigate('/map')
   }
 
@@ -124,6 +143,9 @@ export default function EncounterScreen() {
             <span className="px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: rarity.color + '33', color: rarity.color }}>{rarity.label}</span>
             <span className="text-xs text-slate-400">{track.genre} · {track.album}</span>
           </div>
+          {weather && weather.boost && weather.boost.includes(track.genre) && (
+            <div className="mt-1 text-[10px] text-cyan-400">🌤️ Weather boosted! Catch rate +20%</div>
+          )}
           <div className="mt-3 grid grid-cols-4 gap-2 text-[10px]">
             <Stat label="Energy" v={track.stats.energy} />
             <Stat label="Dance" v={track.stats.dance} />
@@ -170,6 +192,18 @@ export default function EncounterScreen() {
         </div>
       )}
 
+      {/* Modifiers */}
+      {phase === 'ready' && (
+        <div className="flex gap-2">
+          <button onClick={() => setCurveball(c => !c)} className={`flex-1 py-2 rounded-xl text-xs font-semibold border ${curveball ? 'border-fuchsia-500 bg-fuchsia-500/10 text-fuchsia-300' : 'border-slate-700 text-slate-400'}`}>
+            🌀 Curveball {curveball ? 'ON' : 'OFF'}
+          </button>
+          <button onClick={() => { if (consumeItem('berry')) setBerryUsed(true) }} disabled={berryUsed || !(inventory.berry > 0)} className={`flex-1 py-2 rounded-xl text-xs font-semibold border ${berryUsed ? 'border-red-500 bg-red-500/10 text-red-300' : 'border-slate-700 text-slate-400'} disabled:opacity-40`}>
+            🍓 Razz Berry {berryUsed ? 'USED' : `x${inventory.berry || 0}`}
+          </button>
+        </div>
+      )}
+
       {/* Actions */}
       {phase === 'ready' && (
         <div className="flex gap-3">
@@ -189,23 +223,29 @@ export default function EncounterScreen() {
 
       {phase === 'result' && result && (
         <div className="glass rounded-2xl p-6 text-center">
-          {result.success ? (
+          {result.fled ? (
+            <>
+              <div className="text-6xl">🏃</div>
+              <h3 className="mt-2 text-xl font-bold text-amber-400">It fled!</h3>
+              <p className="text-slate-300 text-sm">{track.title} ran away.</p>
+            </>
+          ) : result.success ? (
             <>
               <div className="text-6xl catch-pop">🎉</div>
               <h3 className="mt-2 text-xl font-bold text-green-400">Caught!</h3>
-              <p className="text-slate-300 text-sm">{track.title} added to your collection.</p>
+              <p className="text-slate-300 text-sm">{track.title} added to your collection.{result.shiny ? ' ✨ Shiny!' : ''}</p>
               <div className="mt-3 flex justify-center gap-4 text-sm">
                 <span className="text-fuchsia-400">+{result.xp} XP</span>
                 <span className="text-amber-400">+{result.coins} coins</span>
               </div>
-              <div className="mt-1 text-[10px] text-slate-500">Timing bonus: x{result.bonus.toFixed(2)}</div>
+              <div className="mt-1 text-[10px] text-slate-500">{result.quality} throw · x{result.mult.toFixed(2)}{result.critical ? ' · Critical catch!' : ''}</div>
             </>
           ) : (
             <>
               <div className="text-6xl">💨</div>
               <h3 className="mt-2 text-xl font-bold text-red-400">It broke free!</h3>
               <p className="text-slate-300 text-sm">Try again with a better disc or timing.</p>
-              <div className="mt-1 text-[10px] text-slate-500">Catch chance was {Math.round(result.base * 100)}%</div>
+              <div className="mt-1 text-[10px] text-slate-500">{result.quality} throw · {Math.round(result.base * 100)}% chance</div>
             </>
           )}
           <div className="mt-4 flex gap-3">

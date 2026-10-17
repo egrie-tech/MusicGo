@@ -7,5 +7,9 @@ export const ITEMS = [
   { id: 'potion', name: 'Energy Drink', icon: '🥤', desc: 'Restores 50 HP to a track in battle.', price: 100, effect: 'heal', amount: 50 },
   { id: 'revive', name: 'Encore', icon: '🔁', desc: 'Revives a fainted track.', price: 150, effect: 'revive' },
   { id: 'radar', name: 'Radar', icon: '📡', desc: 'Reveals rare tracks on the map.', price: 400, effect: 'radar' },
+  { id: 'berry', name: 'Razz Berry', icon: '🍓', desc: 'Makes next catch easier.', price: 50, effect: 'berry' },
+  { id: 'incubator', name: 'Incubator', icon: '🥚', desc: 'Hatches eggs while walking.', price: 200, effect: 'incubator' },
+  { id: 'raidpass', name: 'Raid Pass', icon: '🎫', desc: 'Join a raid battle.', price: 100, effect: 'raidpass' },
+  { id: 'luckyegg', name: 'Lucky Egg', icon: '🥚', desc: 'Double XP for 30 min.', price: 200, effect: 'luckyegg' },
 ]
 export const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]))

@@ -1,19 +1,24 @@
 import { useState } from 'react'
 import { useStore } from '../store/gameStore'
 import { TRACKS, RARITY, GENRES } from '../data/tracks'
+import { getEvolution } from '../data/evolutions'
 import { Search } from 'lucide-react'
 
 export default function CollectionScreen() {
   const collection = useStore(s => s.collection) || {}
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
+  const [sort, setSort] = useState('recent')
   const [selected, setSelected] = useState(null)
 
-  const filtered = TRACKS.filter(t => {
+  let filtered = TRACKS.filter(t => {
     if (filter !== 'all' && t.genre !== filter && t.rarity !== filter) return false
     if (search && !t.title.toLowerCase().includes(search.toLowerCase()) && !t.artist.toLowerCase().includes(search.toLowerCase())) return false
     return true
   })
+  if (sort === 'cp') filtered = [...filtered].sort((a,b) => (collection[b.id]?.cp||0) - (collection[a.id]?.cp||0))
+  else if (sort === 'rarity') filtered = [...filtered].sort((a,b) => ['common','uncommon','rare','epic','legendary'].indexOf(b.rarity) - ['common','uncommon','rare','epic','legendary'].indexOf(a.rarity))
+  else if (sort === 'name') filtered = [...filtered].sort((a,b) => a.title.localeCompare(b.title))
 
   const total = TRACKS.length
   const caughtCount = Object.keys(collection).length
@@ -52,6 +57,12 @@ export default function CollectionScreen() {
           <Search size={14} className="text-slate-400" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tracks..." className="bg-transparent outline-none text-sm flex-1" />
         </div>
+        <select value={sort} onChange={e => setSort(e.target.value)} className="glass rounded-xl px-2 py-2 text-xs bg-slate-900">
+          <option value="recent">Recent</option>
+          <option value="cp">CP</option>
+          <option value="rarity">Rarity</option>
+          <option value="name">Name</option>
+        </select>
       </div>
       <div className="flex gap-2 overflow-x-auto no-scrollbar">
         <FilterChip label="All" active={filter === 'all'} onClick={() => setFilter('all')} />
@@ -65,7 +76,9 @@ export default function CollectionScreen() {
           const c = collection[t.id]
           const r = RARITY[t.rarity]
           return (
-            <button key={t.id} onClick={() => setSelected(t)} className={`glass rounded-2xl p-2 text-center transition ${c ? '' : 'opacity-40 grayscale'}`}>
+            <button key={t.id} onClick={() => setSelected(t)} className={`glass rounded-2xl p-2 text-center transition relative ${c ? '' : 'opacity-40 grayscale'}`}>
+              {c && collection[t.id]?.favorite && <span className="absolute top-1 right-1 text-amber-400 text-xs">★</span>}
+              {c && collection[t.id]?.shiny && <span className="absolute top-1 left-1 text-yellow-300 text-xs">✨</span>}
               <div className="w-full aspect-square rounded-xl flex items-center justify-center text-2xl mb-1" style={{ background: c ? `linear-gradient(135deg, hsl(${t.hue},70%,45%), hsl(${(t.hue+60)%360},70%,30%))` : '#1e293b' }}>
                 {c ? '🎵' : '?'}
               </div>
@@ -91,12 +104,25 @@ export default function CollectionScreen() {
                   </div>
                 </div>
                 <div className="grid grid-cols-4 gap-2 text-center text-xs">
-                  <Stat label="Energy" v={selected.stats.energy} />
-                  <Stat label="Dance" v={selected.stats.dance} />
-                  <Stat label="Tempo" v={selected.stats.tempo} />
+                  <Stat label="CP" v={collection[selected.id].cp || selected.stats.cp} />
+                  <Stat label="HP" v={collection[selected.id].hp || selected.stats.hp} />
+                  <Stat label="Level" v={collection[selected.id].level || 1} />
                   <Stat label="Caught" v={collection[selected.id].count} />
                 </div>
+                <div className="text-xs text-slate-400">Candy: 🍬 {candy[selected.id] || 0} · Stardust: ✨ {profile.stardust || 0}</div>
                 <div className="text-xs text-slate-400">Caught {new Date(collection[selected.id].caughtAt).toLocaleDateString()}</div>
+                {/* Appraisal */}
+                <div className="glass rounded-xl p-2 text-xs">
+                  <div className="font-semibold mb-1">Appraisal</div>
+                  <div className="text-slate-400">Energy {selected.stats.energy} · Dance {selected.stats.dance} · Tempo {selected.stats.tempo}</div>
+                  <div className="text-slate-400">Fast: {selected.moves?.fast?.name} · Charged: {selected.moves?.charged?.name}</div>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <button onClick={() => powerUp(selected.id)} className="flex-1 py-2 rounded-xl bg-blue-600 text-xs font-bold">Power Up ({1000*(collection[selected.id].level||1)} coins)</button>
+                  {getEvolution(selected.id) && <button onClick={() => { const r = evolve(selected.id); alert(r.ok ? 'Evolved!' : r.reason) }} className="flex-1 py-2 rounded-xl bg-purple-600 text-xs font-bold">Evolve ({getEvolution(selected.id).candy} candy)</button>}
+                  <button onClick={() => toggleFavorite(selected.id)} className="px-3 py-2 rounded-xl bg-slate-800 text-xs">{collection[selected.id].favorite ? '★' : '☆'}</button>
+                  <button onClick={() => { if (confirm('Transfer for candy?')) { transfer(selected.id); setSelected(null) } }} className="px-3 py-2 rounded-xl bg-red-900/40 text-red-300 text-xs">Transfer</button>
+                </div>
               </>
             ) : (
               <div className="text-center py-6">

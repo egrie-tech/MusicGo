@@ -4,7 +4,8 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import { useStore } from '../store/gameStore'
 import { TRACKS } from '../data/tracks'
-import { generateDrops, DEFAULT_CENTER } from '../utils/geo'
+import { WEATHER } from '../data/types'
+import { generateDrops, DEFAULT_CENTER, haversine } from '../utils/geo'
 import { Navigation, RefreshCw } from 'lucide-react'
 
 // fix leaflet default icon
@@ -44,6 +45,11 @@ export default function MapScreen() {
   const store = useStore()
   const drops = store.drops || []
   const setDrops = store.setDrops
+  const weather = store.weather
+  const claimDaily = store.claimDaily
+  const profile = store.profile
+  const walkEggs = store.walkEggs
+  const walkBuddy = store.walkBuddy
   const [pos, setPos] = useState(null)
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState(null)
@@ -51,9 +57,11 @@ export default function MapScreen() {
   const spawnDrops = (center) => {
     const base = generateDrops(center, 14, 300)
     // assign tracks by rarity weighting
+    const wBoost = (weather && weather.boost) || []
     const weighted = []
     TRACKS.forEach(t => {
-      const w = t.rarity === 'common' ? 5 : t.rarity === 'uncommon' ? 3 : t.rarity === 'rare' ? 2 : t.rarity === 'epic' ? 1 : 0.5
+      let w = t.rarity === 'common' ? 5 : t.rarity === 'uncommon' ? 3 : t.rarity === 'rare' ? 2 : t.rarity === 'epic' ? 1 : 0.5
+      if (wBoost.includes(t.genre)) w *= 2.5
       for (let i = 0; i < Math.round(w * 2); i++) weighted.push(t.id)
     })
     const drops = base.map((d) => ({
@@ -70,7 +78,15 @@ export default function MapScreen() {
     const finish = (c, e) => {
       if (done) return
       done = true
-      if (c) { setPos(c); spawnDrops(c); setLoading(false) }
+      if (c) {
+        if (pos) {
+          const d = haversine(pos, c)
+          if (d > 0 && d < 10000) { store.addDistance(d); walkEggs(d); walkBuddy(d) }
+        }
+        setPos(c)
+        if (!drops || drops.length === 0) spawnDrops(c)
+        setLoading(false)
+      }
       else { if (e) setErr(e); loadDemoArea() }
     }
     const timer = setTimeout(() => finish(null, 'Location timeout — using demo area'), 3000)
@@ -118,6 +134,16 @@ export default function MapScreen() {
         </div>
       )}
       {err && <div className="absolute top-2 left-1/2 -translate-x-1/2 z-40 bg-amber-500/90 text-black text-xs px-3 py-1 rounded-full">{err}</div>}
+
+      {/* Weather + daily */}
+      <div className="absolute top-16 left-3 z-40 glass rounded-2xl px-3 py-2 flex items-center gap-2">
+        <span className="text-xl">{weather?.icon}</span>
+        <div>
+          <div className="text-xs font-semibold">{weather?.name}</div>
+          <div className="text-[9px] text-slate-400">{weather?.desc}</div>
+        </div>
+        <button onClick={() => claimDaily && claimDaily()} className="ml-2 px-2 py-1 rounded-lg bg-amber-500/20 text-amber-300 text-[10px] font-bold">Daily</button>
+      </div>
 
       <MapContainer center={[center.lat, center.lng]} zoom={16} className="h-full w-full" zoomControl={false}>
         <TileLayer
@@ -168,7 +194,7 @@ export default function MapScreen() {
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm" style={{ background: `hsl(${track.hue},70%,40%)` }}>🎵</div>
                   <div className="text-left">
                     <div className="text-xs font-semibold truncate max-w-[90px]">{track.title}</div>
-                    <div className="text-[10px] text-slate-400">{track.rarity}</div>
+                    <div className="text-[10px] text-slate-400">{pos ? Math.round(haversine(pos, d)) : 0}m · {track.rarity}</div>
                   </div>
                 </button>
               )
