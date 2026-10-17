@@ -1,10 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../store/gameStore'
 import { TRACKS, RARITY } from '../data/tracks'
-import { WEATHER } from '../data/types'
 import { ITEMS, ITEM_BY_ID } from '../data/items'
-import { ArrowLeft, Target } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 
 export default function EncounterScreen() {
   const { dropId } = useParams()
@@ -14,54 +13,60 @@ export default function EncounterScreen() {
   const markCaught = useStore(s => s.markCaught)
   const catchTrack = useStore(s => s.catchTrack)
   const consumeItem = useStore(s => s.consumeItem)
-  const inventory = useStore(s => s.inventory)
+  const inventory = useStore(s => s.inventory) || {}
+  const weather = useStore(s => s.weather)
 
-  // cache the drop so transient store updates don't make it 'vanish'
-  const [cachedDrop, setCachedDrop] = useState(null)
+  const cachedDropRef = useRef(null)
   const foundDrop = drops.find(d => d.id === dropId)
-  useEffect(() => { if (foundDrop) setCachedDrop(foundDrop) }, [foundDrop])
-  const drop = foundDrop || cachedDrop
+  if (foundDrop) cachedDropRef.current = foundDrop
+  const drop = foundDrop || cachedDropRef.current
   const track = drop ? TRACKS.find(t => t.id === drop.trackId) : null
 
+  // ring state
+  const [ringScale, setRingScale] = useState(1)
+  const [ringDir, setRingDir] = useState(-1)
+  const [throwState, setThrowState] = useState('idle') // idle | throwing | wobble | caught | escaped | fled
+  const [wobbleCount, setWobbleCount] = useState(0)
   const [selectedItem, setSelectedItem] = useState('ball')
-  const [phase, setPhase] = useState('ready') // ready | throwing | result
-  const [result, setResult] = useState(null)
-  const [sweetSpot, setSweetSpot] = useState(0.5)
-  const [marker, setMarker] = useState(0)
-  const [direction, setDirection] = useState(1)
-  const [speed, setSpeed] = useState(0.012)
-  const [curveball, setCurveball] = useState(false)
   const [berryUsed, setBerryUsed] = useState(false)
-  const weather = useStore(s => s.weather)
+  const [curveball, setCurveball] = useState(false)
+  const [pokemonState, setPokemonState] = useState('idle') // idle | attack | dodge
+  const [quality, setQuality] = useState('')
+  const [result, setResult] = useState(null)
+  const [arMode, setArMode] = useState(false)
   const rafRef = useRef(null)
   const lastRef = useRef(performance.now())
+  const ringScaleRef = useRef(1)
 
-  // animate marker
+  // ring animation
   useEffect(() => {
-    if (phase !== 'ready') return
+    if (throwState !== 'idle') return
     const tick = (now) => {
       const dt = now - lastRef.current
       lastRef.current = now
-      setMarker(m => {
-        let next = m + direction * speed * dt
-        if (next >= 1) { setDirection(-1); next = 1 }
-        if (next <= 0) { setDirection(1); next = 0 }
+      setRingScale(s => {
+        let next = s + ringDir * 0.0004 * dt
+        if (next <= 0.3) { setRingDir(1); next = 0.3 }
+        if (next >= 1) { setRingDir(-1); next = 1 }
+        ringScaleRef.current = next
         return next
       })
       rafRef.current = requestAnimationFrame(tick)
     }
     rafRef.current = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(rafRef.current)
-  }, [phase, direction, speed])
+  }, [throwState, ringDir])
 
-  // difficulty by rarity
+  // pokemon movement/attacks
   useEffect(() => {
-    if (!track) return
-    const r = track.rarity
-    const sp = r === 'common' ? 0.45 : r === 'uncommon' ? 0.4 : r === 'rare' ? 0.32 : r === 'epic' ? 0.25 : 0.18
-    setSweetSpot(sp)
-    setSpeed(r === 'common' ? 0.01 : r === 'uncommon' ? 0.013 : r === 'rare' ? 0.016 : r === 'epic' ? 0.02 : 0.024)
-  }, [track])
+    if (throwState !== 'idle') return
+    const iv = setInterval(() => {
+      const r = Math.random()
+      if (r < 0.15) { setPokemonState('attack'); setTimeout(() => setPokemonState('idle'), 600) }
+      else if (r < 0.3) { setPokemonState('dodge'); setTimeout(() => setPokemonState('idle'), 500) }
+    }, 2000)
+    return () => clearInterval(iv)
+  }, [throwState])
 
   if (!drop || !track) {
     return (
@@ -74,126 +79,134 @@ export default function EncounterScreen() {
 
   const rarity = RARITY[track.rarity]
   const item = ITEM_BY_ID[selectedItem]
-  const inZone = Math.abs(marker - sweetSpot) < 0.12
+  const weatherBoost = weather && weather.boost && weather.boost.includes(track.genre)
 
-  const throwDisc = () => {
-    if (phase !== 'ready') return
+  const throwBall = () => {
+    if (throwState !== 'idle') return
+    if (pokemonState === 'dodge') { // missed because dodging
+      // still throw but lower chance
+    }
     let useId = selectedItem
     if (!consumeItem(useId)) {
-      if (useId !== 'ball' && consumeItem('ball')) {
-        useId = 'ball'
-        setSelectedItem('ball')
-      } else {
-        return
-      }
+      if (useId !== 'ball' && consumeItem('ball')) { useId = 'ball'; setSelectedItem('ball') }
+      else return
     }
     const it = ITEM_BY_ID[useId]
-    setPhase('throwing')
-    const dist = Math.abs(marker - sweetSpot)
-    let quality = 'Miss'
-    let qMult = 0.85
-    if (dist < 0.05) { quality = 'Excellent'; qMult = 2.0 }
-    else if (dist < 0.10) { quality = 'Great'; qMult = 1.6 }
-    else if (dist < 0.15) { quality = 'Nice'; qMult = 1.25 }
-    else if (dist < 0.22) { quality = 'OK'; qMult = 1.0 }
-    let mult = (it?.mult || 1) * qMult
-    if (curveball) mult *= 1.2
-    if (berryUsed) mult *= 1.5
-    // weather boost
-    const w = weather || {}
-    if (w.boost && w.boost.includes(track.genre)) mult *= 1.2
-    const critical = Math.random() < 0.05 && quality !== 'Miss'
-    if (critical) mult *= 2.5
+    const scale = ringScaleRef.current
+    let q = 'Miss'
+    let qMult = 0.7
+    if (scale <= 0.35) { q = 'Excellent'; qMult = 2.0 }
+    else if (scale <= 0.5) { q = 'Great'; qMult = 1.6 }
+    else if (scale <= 0.65) { q = 'Nice'; qMult = 1.25 }
+    else { q = 'OK'; qMult = 1.0 }
+    setQuality(q)
+    setThrowState('throwing')
+
+    const mult = (it?.mult || 1) * qMult * (curveball ? 1.2 : 1) * (berryUsed ? 1.5 : 1) * (weatherBoost ? 1.2 : 1) * (pokemonState === 'dodge' ? 0.5 : 1)
+    const critical = Math.random() < 0.05 && q !== 'Miss'
+
     setTimeout(() => {
+      setThrowState('wobble')
       const res = catchTrack(track.id, mult, Math.random() < 0.01)
       const fled = !res.success && Math.random() < 0.12
-      if (fled) removeDrop(drop.id)
-      setResult({ ...res, quality, mult, critical, fled })
-      setPhase('result')
-      if (res.success) markCaught(drop.id)
-    }, 900)
+      const wobbles = res.success ? (1 + Math.floor(Math.random() * 3)) : (1 + Math.floor(Math.random() * 2))
+      setWobbleCount(wobbles)
+      setTimeout(() => {
+        if (fled) { setThrowState('fled'); removeDrop(drop.id) }
+        else if (res.success) { setThrowState('caught'); markCaught(drop.id); setResult({ ...res, quality: q, mult, critical }) }
+        else { setThrowState('escaped'); setResult({ ...res, quality: q, mult, critical }) }
+      }, wobbles * 700)
+    }, 600)
   }
 
-  const flee = () => {
-    removeDrop(drop.id)
-    navigate('/map')
+  const resetEncounter = () => {
+    setThrowState('idle')
+    setWobbleCount(0)
+    setResult(null)
+    setQuality('')
+    setBerryUsed(false)
+    setCurveball(false)
+    setRingScale(1)
+    setRingDir(-1)
+    ringScaleRef.current = 1
   }
 
   const close = () => {
-    if (result?.success || result?.fled) removeDrop(drop.id)
+    if (result?.success || throwState === 'fled') removeDrop(drop.id)
     navigate('/map')
   }
 
+  const ringColor = ringScale <= 0.35 ? '#22c55e' : ringScale <= 0.5 ? '#eab308' : ringScale <= 0.65 ? '#f97316' : '#ef4444'
+
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-4 space-y-3">
       <button onClick={() => navigate('/map')} className="flex items-center gap-1 text-slate-400 text-sm">
-        <ArrowLeft size={16} /> Flee
+        <ArrowLeft size={16} /> Run
       </button>
 
-      {/* Track hero */}
-      <div className="glass rounded-3xl p-6 text-center relative overflow-hidden">
-        <div className="absolute inset-0 opacity-30" style={{ background: `radial-gradient(circle at 50% 40%, hsl(${track.hue},80%,50%), transparent 70%)` }} />
-        <div className="relative">
-          <div className="w-32 h-32 mx-auto rounded-2xl flex items-center justify-center text-5xl shadow-2xl float" style={{ background: `linear-gradient(135deg, hsl(${track.hue},70%,45%), hsl(${(track.hue+60)%360},70%,30%))` }}>
-            🎵
-          </div>
-          <h2 className="mt-4 text-xl font-bold">{track.title}</h2>
-          <p className="text-slate-300 text-sm">{track.artist}</p>
-          <div className="mt-2 flex items-center justify-center gap-2">
-            <span className="px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: rarity.color + '33', color: rarity.color }}>{rarity.label}</span>
-            <span className="text-xs text-slate-400">{track.genre} · {track.album}</span>
-          </div>
-          {weather && weather.boost && weather.boost.includes(track.genre) && (
-            <div className="mt-1 text-[10px] text-cyan-400">🌤️ Weather boosted! Catch rate +20%</div>
-          )}
-          <div className="mt-3 grid grid-cols-4 gap-2 text-[10px]">
-            <Stat label="Energy" v={track.stats.energy} />
-            <Stat label="Dance" v={track.stats.dance} />
-            <Stat label="Tempo" v={track.stats.tempo} />
-            <Stat label="Catch" v={Math.round(track.stats.catchRate * 100)} />
-          </div>
-        </div>
+      {/* AR toggle */}
+      <div className="flex justify-end">
+        <button onClick={() => setArMode(a => !a)} className={`px-3 py-1 rounded-full text-[10px] font-bold ${arMode ? 'bg-cyan-500/20 text-cyan-300' : 'bg-slate-800 text-slate-400'}`}>
+          {arMode ? 'AR ON' : 'AR OFF'}
+        </button>
       </div>
 
-      {/* Catch timing game */}
-      {phase === 'ready' && (
-        <div className="glass rounded-2xl p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-semibold flex items-center gap-1"><Target size={14} /> Timing</span>
-            <span className={`text-xs ${inZone ? 'text-green-400' : 'text-slate-400'}`}>{inZone ? 'Sweet spot!' : 'Tap at the right moment'}</span>
+      {/* Arena */}
+      <div onClick={throwState === 'idle' ? throwBall : undefined} className={`relative rounded-3xl overflow-hidden cursor-pointer ${arMode ? 'bg-gradient-to-b from-sky-900/40 to-green-900/40' : 'glass'} `} style={{ height: 360 }}>
+        {/* Pokemon */}
+        <div className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ${pokemonState === 'dodge' ? 'translate-x-8' : ''} ${pokemonState === 'attack' ? 'scale-110' : ''}`}>
+          <div className="w-32 h-32 rounded-2xl flex items-center justify-center text-5xl float shadow-2xl" style={{ background: `linear-gradient(135deg, hsl(${track.hue},70%,45%), hsl(${(track.hue+60)%360},70%,30%))` }}>
+            🎵
           </div>
-          <div className="relative h-6 bg-slate-800 rounded-full overflow-hidden">
-            {/* sweet spot */}
-            <div className="absolute top-0 bottom-0 rounded-full" style={{
-              left: `${(sweetSpot - 0.12) * 100}%`,
-              width: `${0.24 * 100}%`,
-              background: 'rgba(34,197,94,0.35)',
-            }} />
-            <div className="absolute top-0 bottom-0 w-1 bg-white/80" style={{ left: `${marker * 100}%`, transform: 'translateX(-50%)' }} />
-          </div>
-          <p className="text-[10px] text-slate-500 mt-1">Hit the green zone for a catch bonus.</p>
+          {pokemonState === 'attack' && <div className="absolute -top-2 -right-2 text-2xl">⚡</div>}
+          {pokemonState === 'dodge' && <div className="absolute -top-2 -right-2 text-2xl">💨</div>}
         </div>
-      )}
 
-      {/* Item selector */}
-      {phase === 'ready' && (
-        <div className="glass rounded-2xl p-3">
-          <div className="text-xs text-slate-400 mb-2">Choose your disc</div>
-          <div className="flex gap-2 overflow-x-auto no-scrollbar">
-            {ITEMS.filter(i => i.effect === 'catch').map(i => (
-              <button key={i.id} onClick={() => setSelectedItem(i.id)}
-                className={`shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border ${selectedItem === i.id ? 'border-fuchsia-500 bg-fuchsia-500/10' : 'border-slate-700 bg-slate-800/50'}`}>
-                <span className="text-xl">{i.icon}</span>
-                <span className="text-[10px] font-medium">{i.name}</span>
-                <span className="text-[9px] text-slate-400">x{inventory[i.id] || 0}</span>
-              </button>
-            ))}
+        {/* Catch ring */}
+        {throwState === 'idle' && (
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+            <div className="rounded-full border-4" style={{
+              width: `${ringScale * 160}px`,
+              height: `${ringScale * 160}px`,
+              borderColor: ringColor,
+              boxShadow: `0 0 12px ${ringColor}`,
+              transition: 'none',
+            }} />
+          </div>
+        )}
+
+        {/* Ball throwing animation */}
+        {throwState === 'throwing' && (
+          <div className="absolute left-1/2 bottom-4 -translate-x-1/2 text-4xl animate-bounce">⚪</div>
+        )}
+
+        {/* Wobble */}
+        {throwState === 'wobble' && (
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-4xl" style={{ animation: `spin-slow 0.7s linear ${wobbleCount}` }}>⚪</div>
+        )}
+
+        {/* Info overlay */}
+        <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+          <div>
+            <div className="text-sm font-bold drop-shadow">{track.title}</div>
+            <div className="text-[10px] text-slate-300 drop-shadow">{track.artist}</div>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: rarity.color + '55', color: rarity.color }}>{rarity.label}</span>
+            {weatherBoost && <span className="text-[10px] text-cyan-300">🌤️</span>}
           </div>
         </div>
-      )}
+
+        {/* Tap to throw hint */}
+        {throwState === 'idle' && (
+          <div className="absolute bottom-3 left-0 right-0 text-center text-[10px] text-slate-300 drop-shadow">
+            Tap anywhere to throw when the ring is small
+          </div>
+        )}
+      </div>
 
       {/* Modifiers */}
-      {phase === 'ready' && (
+      {throwState === 'idle' && (
         <div className="flex gap-2">
           <button onClick={() => setCurveball(c => !c)} className={`flex-1 py-2 rounded-xl text-xs font-semibold border ${curveball ? 'border-fuchsia-500 bg-fuchsia-500/10 text-fuchsia-300' : 'border-slate-700 text-slate-400'}`}>
             🌀 Curveball {curveball ? 'ON' : 'OFF'}
@@ -204,69 +217,72 @@ export default function EncounterScreen() {
         </div>
       )}
 
-      {/* Actions */}
-      {phase === 'ready' && (
-        <div className="flex gap-3">
-          <button onClick={flee} className="flex-1 py-3 rounded-2xl bg-slate-800 text-slate-300 font-semibold">Flee</button>
-          <button onClick={throwDisc} className="flex-[2] py-3 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-cyan-500 font-bold shadow-lg shadow-fuchsia-500/30">
-            Throw {item.icon}
-          </button>
+      {/* Ball selector */}
+      {throwState === 'idle' && (
+        <div className="flex gap-2 overflow-x-auto no-scrollbar">
+          {ITEMS.filter(i => i.effect === 'catch').map(i => (
+            <button key={i.id} onClick={() => setSelectedItem(i.id)}
+              className={`shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border ${selectedItem === i.id ? 'border-fuchsia-500 bg-fuchsia-500/10' : 'border-slate-700 bg-slate-800/50'}`}>
+              <span className="text-xl">{i.icon}</span>
+              <span className="text-[10px] font-medium">{i.name}</span>
+              <span className="text-[9px] text-slate-400">x{inventory[i.id] || 0}</span>
+            </button>
+          ))}
         </div>
       )}
 
-      {phase === 'throwing' && (
-        <div className="text-center py-8">
-          <div className="text-6xl catch-pop">💿</div>
-          <p className="mt-3 text-slate-300">Catching...</p>
+      {/* Throwing state */}
+      {throwState === 'throwing' && (
+        <div className="text-center py-4">
+          <p className="text-slate-300 text-sm">Throwing...</p>
         </div>
       )}
 
-      {phase === 'result' && result && (
+      {/* Wobble */}
+      {throwState === 'wobble' && (
+        <div className="text-center py-4">
+          <p className="text-slate-300 text-sm">...</p>
+        </div>
+      )}
+
+      {/* Result */}
+      {(throwState === 'caught' || throwState === 'escaped' || throwState === 'fled') && (
         <div className="glass rounded-2xl p-6 text-center">
-          {result.fled ? (
+          {throwState === 'fled' ? (
             <>
               <div className="text-6xl">🏃</div>
               <h3 className="mt-2 text-xl font-bold text-amber-400">It fled!</h3>
               <p className="text-slate-300 text-sm">{track.title} ran away.</p>
             </>
-          ) : result.success ? (
+          ) : throwState === 'caught' ? (
             <>
               <div className="text-6xl catch-pop">🎉</div>
-              <h3 className="mt-2 text-xl font-bold text-green-400">Caught!</h3>
-              <p className="text-slate-300 text-sm">{track.title} added to your collection.{result.shiny ? ' ✨ Shiny!' : ''}</p>
+              <h3 className="mt-2 text-xl font-bold text-green-400">Gotcha!</h3>
+              <p className="text-slate-300 text-sm">{track.title} was caught!{result?.shiny ? ' ✨ Shiny!' : ''}</p>
               <div className="mt-3 flex justify-center gap-4 text-sm">
-                <span className="text-fuchsia-400">+{result.xp} XP</span>
-                <span className="text-amber-400">+{result.coins} coins</span>
+                <span className="text-fuchsia-400">+{result?.xp} XP</span>
+                <span className="text-amber-400">+{result?.coins} coins</span>
               </div>
-              <div className="mt-1 text-[10px] text-slate-500">{result.quality} throw · x{result.mult.toFixed(2)}{result.critical ? ' · Critical catch!' : ''}</div>
+              <div className="mt-1 text-[10px] text-slate-500">{result?.quality} throw · x{result?.mult?.toFixed(2)}{result?.critical ? ' · Critical!' : ''}</div>
             </>
           ) : (
             <>
               <div className="text-6xl">💨</div>
               <h3 className="mt-2 text-xl font-bold text-red-400">It broke free!</h3>
-              <p className="text-slate-300 text-sm">Try again with a better disc or timing.</p>
-              <div className="mt-1 text-[10px] text-slate-500">{result.quality} throw · {Math.round(result.base * 100)}% chance</div>
+              <p className="text-slate-300 text-sm">Try again with better timing.</p>
+              <div className="mt-1 text-[10px] text-slate-500">{result?.quality} throw</div>
             </>
           )}
           <div className="mt-4 flex gap-3">
-            {!result.success && (
-              <button onClick={() => { setPhase('ready'); setResult(null) }} className="flex-1 py-3 rounded-2xl bg-slate-800 font-semibold">Try Again</button>
+            {throwState === 'escaped' && (
+              <button onClick={resetEncounter} className="flex-1 py-3 rounded-2xl bg-slate-800 font-semibold">Try Again</button>
             )}
             <button onClick={close} className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-cyan-500 font-bold">
-              {result.success ? 'Continue' : 'Flee'}
+              {throwState === 'caught' ? 'Continue' : 'Run'}
             </button>
           </div>
         </div>
       )}
-    </div>
-  )
-}
-
-function Stat({ label, v }) {
-  return (
-    <div className="bg-slate-800/60 rounded-lg py-1">
-      <div className="text-slate-400">{label}</div>
-      <div className="font-bold text-white">{v}</div>
     </div>
   )
 }
