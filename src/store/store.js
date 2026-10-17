@@ -43,7 +43,8 @@ let _state = loadPersisted()
 const listeners = new Set()
 
 function _setState(partial) {
-  _state = typeof partial === 'function' ? partial(_state) : { ..._state, ...partial }
+  const next = typeof partial === 'function' ? partial(_state) : partial
+  _state = { ..._state, ...next }
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ state: _state })) } catch (e) {}
   listeners.forEach(l => l())
 }
