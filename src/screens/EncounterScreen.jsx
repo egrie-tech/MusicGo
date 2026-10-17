@@ -187,11 +187,22 @@ export default function EncounterScreen() {
         onPointerUp={onPointerUp}
         onPointerLeave={onPointerUp}
       >
-        {/* Pokemon */}
-        <div className={`absolute transition-all duration-300 ${pokemonState === 'dodge' ? 'translate-x-16 opacity-70' : ''} ${pokemonState === 'attack' ? 'scale-110' : ''}`}
-          style={{ top: '35%' }}>
-          <div className="relative">
-            <div className="w-40 h-40 rounded-3xl flex items-center justify-center text-6xl shadow-2xl" style={{ background: `linear-gradient(135deg, hsl(${track.hue},70%,45%), hsl(${(track.hue+60)%360},70%,30%))` }}>
+        {/* Pokemon + catch ring centered together */}
+        <div className="absolute left-1/2 top-[38%] -translate-x-1/2 -translate-y-1/2">
+          {/* Catch ring */}
+          {throwState === 'idle' && (
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+              <div className="rounded-full border-4 transition-none" style={{
+                width: `${ringScale * 240}px`,
+                height: `${ringScale * 240}px`,
+                borderColor: ringColor,
+                boxShadow: `0 0 24px ${ringColor}, inset 0 0 16px ${ringColor}55`,
+              }} />
+            </div>
+          )}
+          {/* Pokemon */}
+          <div className={`relative transition-all duration-300 ${pokemonState === 'dodge' ? 'translate-x-20 opacity-70' : ''} ${pokemonState === 'attack' ? 'scale-110' : ''}`}>
+            <div className="w-44 h-44 rounded-3xl flex items-center justify-center text-7xl shadow-2xl" style={{ background: `linear-gradient(135deg, hsl(${track.hue},70%,45%), hsl(${(track.hue+60)%360},70%,30%))` }}>
               🎵
             </div>
             {pokemonState === 'attack' && <div className="absolute -top-4 -right-4 text-3xl animate-pulse">⚡</div>}
@@ -199,18 +210,6 @@ export default function EncounterScreen() {
             {track.rarity === 'legendary' && <div className="absolute -top-2 -left-2 text-2xl">👑</div>}
           </div>
         </div>
-
-        {/* Catch ring */}
-        {throwState === 'idle' && (
-          <div className="absolute pointer-events-none" style={{ top: '35%', left: '50%', transform: 'translate(-50%, -50%)' }}>
-            <div className="rounded-full border-4" style={{
-              width: `${ringScale * 220}px`,
-              height: `${ringScale * 220}px`,
-              borderColor: ringColor,
-              boxShadow: `0 0 20px ${ringColor}, inset 0 0 20px ${ringColor}44`,
-            }} />
-          </div>
-        )}
 
         {/* Ball in flight */}
         {throwState === 'throwing' && (
