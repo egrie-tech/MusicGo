@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useStore, xpToNext } from '../store/useStore'
+import { useStore, xpToNext } from '../store/store'
 import { TRACKS } from '../data/tracks'
 import { Edit3, Trophy, Music, MapPin, Flame } from 'lucide-react'
 

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useStore } from '../store/useStore'
+import { useStore } from '../store/store'
 import { ITEMS } from '../data/items'
 import { ShoppingCart } from 'lucide-react'
 

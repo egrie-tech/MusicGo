@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useStore } from '../store/useStore'
+import { useStore } from '../store/store'
 import { TRACKS, RARITY } from '../data/tracks'
 import { ITEMS, ITEM_BY_ID } from '../data/items'
 import { ArrowLeft, Target } from 'lucide-react'

@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { useStore } from './store/useStore'
+import { useStore } from './store/store'
 import BottomNav from './components/BottomNav'
 import TopBar from './components/TopBar'
 import MapScreen from './screens/MapScreen'
