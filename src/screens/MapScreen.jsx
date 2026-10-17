@@ -41,7 +41,9 @@ function Recenter({ pos }) {
 
 export default function MapScreen() {
   const navigate = useNavigate()
-  const { drops, setDrops } = useStore()
+  const store = useStore()
+  const drops = store.drops || []
+  const setDrops = store.setDrops
   const [pos, setPos] = useState(null)
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState(null)

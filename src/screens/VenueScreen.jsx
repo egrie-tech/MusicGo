@@ -6,7 +6,7 @@ import { Trophy, Swords } from 'lucide-react'
 export default function VenueScreen() {
   const { venueId } = useParams()
   const navigate = useNavigate()
-  const venues = useStore(s => s.venues)
+  const venues = useStore(s => s.venues) || {}
   const venue = VENUES.find(v => v.id === venueId)
   const state = venues[venueId]
 

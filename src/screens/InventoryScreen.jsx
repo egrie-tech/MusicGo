@@ -4,8 +4,8 @@ import { ITEMS } from '../data/items'
 import { ShoppingCart } from 'lucide-react'
 
 export default function InventoryScreen() {
-  const inventory = useStore(s => s.inventory)
-  const profile = useStore(s => s.profile)
+  const inventory = useStore(s => s.inventory) || {}
+  const profile = useStore(s => s.profile) || {}
   const buyItem = useStore(s => s.buyItem)
   const [tab, setTab] = useState('items') // items | shop
 

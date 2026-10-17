@@ -4,7 +4,7 @@ import { TRACKS, RARITY, GENRES } from '../data/tracks'
 import { Search } from 'lucide-react'
 
 export default function CollectionScreen() {
-  const collection = useStore(s => s.collection)
+  const collection = useStore(s => s.collection) || {}
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState(null)

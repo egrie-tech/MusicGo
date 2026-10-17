@@ -8,7 +8,7 @@ import { ArrowLeft, Target } from 'lucide-react'
 export default function EncounterScreen() {
   const { dropId } = useParams()
   const navigate = useNavigate()
-  const drops = useStore(s => s.drops)
+  const drops = useStore(s => s.drops) || []
   const removeDrop = useStore(s => s.removeDrop)
   const markCaught = useStore(s => s.markCaught)
   const catchTrack = useStore(s => s.catchTrack)

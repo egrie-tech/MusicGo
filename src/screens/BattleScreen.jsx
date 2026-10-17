@@ -6,7 +6,7 @@ import { TRACKS } from '../data/tracks'
 function makeHp(track) { return 80 + track.stats.energy }
 
 export default function BattleScreen() {
-  const collection = useStore(s => s.collection)
+  const collection = useStore(s => s.collection) || {}
   const battle = useStore(s => s.battle)
   const setBattle = useStore(s => s.setBattle)
 

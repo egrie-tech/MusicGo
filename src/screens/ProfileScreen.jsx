@@ -6,8 +6,8 @@ import { Edit3, Trophy, Music, MapPin, Flame } from 'lucide-react'
 const AVATARS = ['🎧','🎤','🎸','🎹','🎷','🎻','💃','🕺','👑','🔥','⚡','🌙','🎵','💿','🏆']
 
 export default function ProfileScreen() {
-  const profile = useStore(s => s.profile)
-  const collection = useStore(s => s.collection)
+  const profile = useStore(s => s.profile) || {}
+  const collection = useStore(s => s.collection) || {}
   const setName = useStore(s => s.setName)
   const setAvatar = useStore(s => s.setAvatar)
   const reset = useStore(s => s.reset)

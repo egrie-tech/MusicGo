@@ -23,9 +23,15 @@ function loadPersisted() {
       const parsed = JSON.parse(raw)
       const s = (parsed && parsed.state) ? parsed.state : parsed
       if (s && typeof s === 'object') {
-        const merged = { ...initialState, ...s }
+        const clean = {}
+        for (const k in s) { if (s[k] !== undefined) clean[k] = s[k] }
+        const merged = { ...initialState, ...clean }
         if (!merged.profile || typeof merged.profile !== 'object') merged.profile = { ...initialState.profile }
         else merged.profile = { ...initialState.profile, ...merged.profile }
+        if (!Array.isArray(merged.drops)) merged.drops = []
+        if (!merged.collection || typeof merged.collection !== 'object') merged.collection = {}
+        if (!merged.inventory || typeof merged.inventory !== 'object') merged.inventory = { ...initialState.inventory }
+        if (!merged.venues || typeof merged.venues !== 'object') merged.venues = {}
         return merged
       }
     }
