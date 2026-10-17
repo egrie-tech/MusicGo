@@ -1,4 +1,4 @@
-import { useSyncExternalStore, useCallback, useRef } from 'react'
+import { useSyncExternalStore, useCallback, useState } from 'react'
 import { TRACKS, RARITY } from '../data/tracks'
 import { ITEMS } from '../data/items'
 
@@ -136,16 +136,15 @@ const actions = {
 
 // useStore hook with selector support
 function useStore(selector) {
-  const selRef = useRef(selector || (s => s))
-  selRef.current = selector || (s => s)
-  const lastStateRef = useRef(undefined)
-  const lastSliceRef = useRef(undefined)
+  const sel = selector || (s => s)
+  const cacheRef = useState(() => ({ sel: null, state: undefined, slice: undefined }))[0]
+  cacheRef.sel = sel
   const getSlice = useCallback(() => {
-    if (lastStateRef.current !== _state) {
-      lastStateRef.current = _state
-      lastSliceRef.current = selRef.current(getMergedState())
+    if (cacheRef.state !== _state) {
+      cacheRef.state = _state
+      cacheRef.slice = cacheRef.sel(getMergedState())
     }
-    return lastSliceRef.current
+    return cacheRef.slice
   }, [])
   return useSyncExternalStore(subscribe, getSlice, getSlice)
 }
