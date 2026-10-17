@@ -157,8 +157,8 @@ export default function EncounterScreen() {
   }
 
   const bg = arMode
-    ? 'linear-gradient(to bottom, #87ceeb 0%, #98d8a8 60%, #4a7c3f 100%)'
-    : 'linear-gradient(to bottom, #1e3a5f 0%, #2d5a3d 60%, #1a3a2a 100%)'
+    ? 'linear-gradient(to bottom, #87ceeb 0%, #b8e6b8 55%, #5a9a4a 100%)'
+    : 'linear-gradient(to bottom, #5ba3d9 0%, #8fc97a 45%, #4a8a3a 70%, #2d5a2a 100%)'
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col" style={{ background: bg }}>
@@ -189,10 +189,14 @@ export default function EncounterScreen() {
       >
         {/* Pokemon + catch ring centered together */}
         <div className="absolute left-1/2 top-[38%] -translate-x-1/2 -translate-y-1/2">
+          {/* Ground shadow */}
+          <div className="absolute left-1/2 top-[62%] -translate-x-1/2 w-48 h-6 rounded-full bg-black/30 blur-md" />
           {/* Catch ring */}
           {throwState === 'idle' && (
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-              <div className="rounded-full border-4 transition-none" style={{
+              {/* inner target circle */}
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/40" style={{ width: 60, height: 60 }} />
+              <div className="rounded-full border-4" style={{
                 width: `${ringScale * 240}px`,
                 height: `${ringScale * 240}px`,
                 borderColor: ringColor,
