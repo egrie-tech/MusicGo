@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useStore } from './store/gameStore'
 import BottomNav from './components/BottomNav'
 import TopBar from './components/TopBar'
@@ -16,10 +16,12 @@ import RaidsScreen from './screens/RaidsScreen'
 
 export default function App() {
   const profile = useStore(s => s.profile) || { level: 1, xp: 0, avatar: '🎧', name: 'Player', title: 'Rookie Listener', coins: 0 }
+  const location = useLocation()
+  const isEncounter = location.pathname.startsWith('/encounter')
   return (
     <div className="app-shell">
-      <TopBar profile={profile} />
-      <div className="scroll-area" style={{ paddingTop: 56, paddingBottom: 72 }}>
+      {!isEncounter && <TopBar profile={profile} />}
+      <div className="scroll-area" style={{ paddingTop: isEncounter ? 0 : 56, paddingBottom: isEncounter ? 0 : 72 }}>
         <Routes>
           <Route path="/" element={<Navigate to="/map" replace />} />
           <Route path="/map" element={<MapScreen />} />
@@ -35,7 +37,7 @@ export default function App() {
           <Route path="/raids" element={<RaidsScreen />} />
         </Routes>
       </div>
-      <BottomNav />
+      {!isEncounter && <BottomNav />}
     </div>
   )
 }

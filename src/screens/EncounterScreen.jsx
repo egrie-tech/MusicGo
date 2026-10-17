@@ -188,17 +188,17 @@ export default function EncounterScreen() {
         onPointerLeave={onPointerUp}
       >
         {/* Pokemon + catch ring centered together */}
-        <div className="absolute left-1/2 top-[38%] -translate-x-1/2 -translate-y-1/2">
+        <div className="absolute left-1/2 top-[32%] -translate-x-1/2 -translate-y-1/2">
           {/* Ground shadow */}
-          <div className="absolute left-1/2 top-[62%] -translate-x-1/2 w-48 h-6 rounded-full bg-black/30 blur-md" />
+          <div className="absolute left-1/2 top-[58%] -translate-x-1/2 w-56 h-8 rounded-full bg-black/40 blur-md" />
           {/* Catch ring */}
           {throwState === 'idle' && (
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
               {/* inner target circle */}
               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/40" style={{ width: 60, height: 60 }} />
               <div className="rounded-full border-4" style={{
-                width: `${ringScale * 240}px`,
-                height: `${ringScale * 240}px`,
+                width: `${ringScale * 280}px`,
+                height: `${ringScale * 280}px`,
                 borderColor: ringColor,
                 boxShadow: `0 0 24px ${ringColor}, inset 0 0 16px ${ringColor}55`,
               }} />
@@ -206,7 +206,7 @@ export default function EncounterScreen() {
           )}
           {/* Pokemon */}
           <div className={`relative transition-all duration-300 ${pokemonState === 'dodge' ? 'translate-x-20 opacity-70' : ''} ${pokemonState === 'attack' ? 'scale-110' : ''}`}>
-            <div className="w-44 h-44 rounded-3xl flex items-center justify-center text-7xl shadow-2xl" style={{ background: `linear-gradient(135deg, hsl(${track.hue},70%,45%), hsl(${(track.hue+60)%360},70%,30%))` }}>
+            <div className="w-52 h-52 rounded-3xl flex items-center justify-center text-8xl shadow-2xl" style={{ background: `linear-gradient(135deg, hsl(${track.hue},70%,45%), hsl(${(track.hue+60)%360},70%,30%))` }}>
               🎵
             </div>
             {pokemonState === 'attack' && <div className="absolute -top-4 -right-4 text-3xl animate-pulse">⚡</div>}
