@@ -15,7 +15,11 @@ export default function EncounterScreen() {
   const consumeItem = useStore(s => s.consumeItem)
   const inventory = useStore(s => s.inventory)
 
-  const drop = drops.find(d => d.id === dropId)
+  // cache the drop so transient store updates don't make it 'vanish'
+  const [cachedDrop, setCachedDrop] = useState(null)
+  const foundDrop = drops.find(d => d.id === dropId)
+  useEffect(() => { if (foundDrop) setCachedDrop(foundDrop) }, [foundDrop])
+  const drop = foundDrop || cachedDrop
   const track = drop ? TRACKS.find(t => t.id === drop.trackId) : null
 
   const [selectedItem, setSelectedItem] = useState('ball')
