@@ -22,7 +22,12 @@ function loadPersisted() {
     if (raw) {
       const parsed = JSON.parse(raw)
       const s = (parsed && parsed.state) ? parsed.state : parsed
-      if (s && typeof s === 'object') return { ...initialState, ...s }
+      if (s && typeof s === 'object') {
+        const merged = { ...initialState, ...s }
+        if (!merged.profile || typeof merged.profile !== 'object') merged.profile = { ...initialState.profile }
+        else merged.profile = { ...initialState.profile, ...merged.profile }
+        return merged
+      }
     }
   } catch (e) {}
   return { ...initialState }

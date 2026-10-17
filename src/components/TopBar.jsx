@@ -1,7 +1,7 @@
 import { Coins, Zap } from "lucide-react"
 
 export default function TopBar({ profile }) {
-  const p = profile
+  const p = profile || { level: 1, xp: 0, avatar: '🎧', name: 'Player', title: 'Rookie Listener', coins: 0 }
   const xpToNext = (lvl) => 100 * (lvl + 1) * (lvl + 2) / 2
   const cur = 100 * p.level * (p.level + 1) / 2
   const pct = Math.min(100, ((p.xp - cur) / (xpToNext(p.level) - cur)) * 100)

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useStore } from '../store/useStore'
 import { ITEMS } from '../data/items'
 import { ShoppingCart } from 'lucide-react'

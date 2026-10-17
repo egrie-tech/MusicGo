@@ -11,7 +11,7 @@ import InventoryScreen from './screens/InventoryScreen'
 import VenueScreen from './screens/VenueScreen'
 
 export default function App() {
-  const profile = useStore(s => s.profile)
+  const profile = useStore(s => s.profile) || { level: 1, xp: 0, avatar: '🎧', name: 'Player', title: 'Rookie Listener', coins: 0 }
   return (
     <div className="app-shell">
       <TopBar profile={profile} />
