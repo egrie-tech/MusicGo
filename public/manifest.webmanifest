@@ -1,0 +1,14 @@
+{
+  "name": "MusicGo",
+  "short_name": "MusicGo",
+  "description": "Pokemon Go but for music. Walk the world, catch tracks, build your collection.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a14",
+  "theme_color": "#a855f7",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
