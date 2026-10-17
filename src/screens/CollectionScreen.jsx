@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useStore } from '../store/store'
+import { useStore } from '../store/gameStore'
 import { TRACKS, RARITY, GENRES } from '../data/tracks'
 import { Search } from 'lucide-react'
 

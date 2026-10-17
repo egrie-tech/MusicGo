@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useStore } from '../store/store'
+import { useStore } from '../store/gameStore'
 import { VENUES } from '../data/venues'
 import { Trophy, Swords } from 'lucide-react'
 

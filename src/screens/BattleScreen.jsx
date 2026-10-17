@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useStore } from '../store/store'
+import { useStore } from '../store/gameStore'
 import { TRACKS } from '../data/tracks'
 
 

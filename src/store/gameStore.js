@@ -55,7 +55,7 @@ function subscribe(listener) {
 }
 
 function getMergedState() {
-  return { ..._state, ...actions }
+  return { ..._state, drops: Array.isArray(_state.drops) ? _state.drops : [], collection: _state.collection || {}, inventory: _state.inventory || {}, venues: _state.venues || {}, profile: _state.profile || initialState.profile, battle: _state.battle, ...actions }
 }
 
 function getState() {
@@ -119,10 +119,10 @@ const actions = {
     actions.addItem(itemId, qty)
     return true
   },
-  setDrops: (drops) => _setState({ drops }),
+  setDrops: (drops) => _setState({ drops: Array.isArray(drops) ? drops : [] }),
   addDrop: (drop) => _setState(s => ({ drops: [...s.drops, drop] })),
-  removeDrop: (id) => _setState(s => ({ drops: s.drops.filter(d => d.id !== id) })),
-  markCaught: (id) => _setState(s => ({ drops: s.drops.map(d => d.id === id ? { ...d, caught: true } : d) })),
+  removeDrop: (id) => _setState(s => ({ drops: (s.drops || []).filter(d => d.id !== id) })),
+  markCaught: (id) => _setState(s => ({ drops: (s.drops || []).map(d => d.id === id ? { ...d, caught: true } : d) })),
   claimVenue: (venueId, team) => _setState(s => ({
     venues: { ...s.venues, [venueId]: { owner: s.profile.name, team, level: 1, claimedAt: Date.now() } }
   })),
