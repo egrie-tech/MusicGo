@@ -1,313 +1,206 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../store/gameStore'
-import { TRACKS, RARITY } from '../data/tracks'
-import { ITEMS, ITEM_BY_ID } from '../data/items'
-import { ArrowLeft, X } from 'lucide-react'
+import { TRACK_BY_ID, GENRE_EMOJI } from '../data/tracks'
+import { DISCS, BERRIES } from '../data/items'
+import { catchDifficulty, catchSuccessRate } from '../utils/game'
+import TrackArt from '../components/TrackArt'
+import { player, usePlayer } from '../utils/player'
+import { X } from 'lucide-react'
 
 export default function EncounterScreen() {
-  const { dropId } = useParams()
+  const { spawnId } = useParams()
   const navigate = useNavigate()
-  const drops = useStore(s => s.drops) || []
-  const removeDrop = useStore(s => s.removeDrop)
-  const markCaught = useStore(s => s.markCaught)
-  const catchTrack = useStore(s => s.catchTrack)
-  const consumeItem = useStore(s => s.consumeItem)
-  const inventory = useStore(s => s.inventory) || {}
-  const weather = useStore(s => s.weather)
+  const store = useStore()
+  const p = usePlayer()
+  const spawn = (store.spawns || []).find(s => s.id === spawnId)
+  const [cachedSpawn, setCachedSpawn] = useState(spawn || null)
+  useEffect(() => { if (spawn) setCachedSpawn(spawn) }, [spawn])
+  const sp = spawn || cachedSpawn
+  const track = sp ? TRACK_BY_ID[sp.trackId] : null
 
-  const [cachedDrop, setCachedDrop] = useState(null)
-  const foundDrop = drops.find(d => d.id === dropId)
-  useEffect(() => { if (foundDrop) setCachedDrop(foundDrop) }, [foundDrop])
-  const drop = foundDrop || cachedDrop
-  const track = drop ? TRACKS.find(t => t.id === drop.trackId) : null
-
-  const [ringScale, setRingScale] = useState(1)
-  const [ringDir, setRingDir] = useState(-1)
-  const [throwState, setThrowState] = useState('idle')
-  const [wobbleCount, setWobbleCount] = useState(0)
-  const [selectedItem, setSelectedItem] = useState('ball')
-  const [berryUsed, setBerryUsed] = useState(false)
-  const [curveball, setCurveball] = useState(false)
-  const [pokemonState, setPokemonState] = useState('idle')
+  const [ring, setRing] = useState(1)
+  const ringRef = useRef(1)
+  const [phase, setPhase] = useState('idle') // idle|throwing|wobble|caught|escaped|fled
+  const [wobbles, setWobbles] = useState(0)
+  const [discId, setDiscId] = useState('disc')
+  const [berry, setBerry] = useState(null) // {id, mult, calm, candy}
+  const [curve, setCurve] = useState(false)
+  const [mon, setMon] = useState('idle') // idle|attack|dodge
   const [quality, setQuality] = useState('')
   const [result, setResult] = useState(null)
-  const [arMode, setArMode] = useState(false)
-  // flick state
-  const [drag, setDrag] = useState(null) // {startX,startY,curX,curY}
-  const rafRef = useState({ current: null })[0]
-  const lastRef = useState({ current: performance.now() })[0]
-  const ringScaleRef = useState({ current: 1 })[0]
+  const [ar, setAr] = useState(false)
+  const [cameraOn, setCameraOn] = useState(false)
+  const videoRef = useRef(null)
+  const drag = useRef(null)
+  const [trail, setTrail] = useState(null)
+  const [throwsUsed, setThrowsUsed] = useState(0)
+
+  const weatherBoost = store.weather?.boost?.includes(track?.genre)
+  const disc = DISCS.find(d => d.id === discId) || DISCS[0]
+  const rate = track ? catchSuccessRate({ track, ballMult: disc.mult, berryMult: berry?.mult || 1, curveball: curve, qualityMult: 1, weatherBoost }) : 0
+  const diff = catchDifficulty(rate)
 
   useEffect(() => {
-    if (throwState !== 'idle') return
+    let raf, last = performance.now(), dir = -1, val = 1
     const tick = (now) => {
-      const dt = now - lastRef.current
-      lastRef.current = now
-      setRingScale(s => {
-        let next = s + ringDir * 0.00035 * dt
-        if (next <= 0.25) { setRingDir(1); next = 0.25 }
-        if (next >= 1) { setRingDir(-1); next = 1 }
-        ringScaleRef.current = next
-        return next
-      })
-      rafRef.current = requestAnimationFrame(tick)
+      const dt = now - last; last = now
+      if (phase === 'idle') {
+        val += dir * 0.00045 * dt
+        if (val <= 0.22) { val = 0.22; dir = 1 } if (val >= 1) { val = 1; dir = -1 }
+        ringRef.current = val; setRing(val)
+      }
+      raf = requestAnimationFrame(tick)
     }
-    rafRef.current = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(rafRef.current)
-  }, [throwState, ringDir])
+    raf = requestAnimationFrame(tick); return () => cancelAnimationFrame(raf)
+  }, [phase])
 
   useEffect(() => {
-    if (throwState !== 'idle') return
+    if (phase !== 'idle') return
     const iv = setInterval(() => {
+      if (berry?.calm) return
       const r = Math.random()
-      if (r < 0.12) { setPokemonState('attack'); setTimeout(() => setPokemonState('idle'), 700) }
-      else if (r < 0.28) { setPokemonState('dodge'); setTimeout(() => setPokemonState('idle'), 600) }
-    }, 2200)
+      if (r < 0.14) { setMon('attack'); setTimeout(() => setMon('idle'), 650) }
+      else if (r < 0.32) { setMon('dodge'); setTimeout(() => setMon('idle'), 600) }
+    }, 2000)
     return () => clearInterval(iv)
-  }, [throwState])
+  }, [phase, berry])
 
-  if (!drop || !track) {
-    return (
-      <div className="fixed inset-0 z-50 bg-slate-950 flex flex-col items-center justify-center text-center p-6">
-        <p className="text-slate-400">This drop has vanished.</p>
-        <button onClick={() => navigate('/map')} className="mt-4 px-4 py-2 bg-fuchsia-500 rounded-xl">Back to Map</button>
-      </div>
-    )
+  useEffect(() => () => { videoRef.current?.srcObject?.getTracks?.().forEach(t => t.stop()) }, [])
+
+  if (!sp || !track) return (
+    <div className="fixed inset-0 z-50 bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
+      <p className="text-slate-400">This track has vanished.</p>
+      <button onClick={() => navigate('/map')} className="mt-4 px-4 py-2 bg-fuchsia-500 rounded-xl font-bold">Back to Map</button>
+    </div>
+  )
+
+  const toggleAr = async () => {
+    const next = !ar; setAr(next)
+    if (next && navigator.mediaDevices?.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+        setCameraOn(true); setTimeout(() => { if (videoRef.current) videoRef.current.srcObject = stream }, 50)
+      } catch { setCameraOn(false) }
+    } else { videoRef.current?.srcObject?.getTracks?.().forEach(t => t.stop()); setCameraOn(false) }
   }
 
-  const rarity = RARITY[track.rarity]
-  const item = ITEM_BY_ID[selectedItem]
-  const weatherBoost = weather && weather.boost && weather.boost.includes(track.genre)
-  const cp = track.stats.cp || (track.stats.energy * 10 + track.stats.dance * 5)
+  const applyBerry = (b) => {
+    if (berry || !store.consumeItem(b.id)) return
+    setBerry(b)
+  }
 
-  const ringColor = ringScale <= 0.3 ? '#22c55e' : ringScale <= 0.45 ? '#eab308' : ringScale <= 0.6 ? '#f97316' : '#ef4444'
-
-  const doThrow = (scaleOverride) => {
-    if (throwState !== 'idle') return
-    if (pokemonState === 'dodge') {}
-    let useId = selectedItem
-    if (!consumeItem(useId)) {
-      if (useId !== 'ball' && consumeItem('ball')) { useId = 'ball'; setSelectedItem('ball') }
-      else return
+  const doThrow = () => {
+    if (phase !== 'idle') return
+    if (!store.consumeItem(discId)) {
+      if (discId !== 'disc' && (store.inventory.disc || 0) > 0) setDiscId('disc')
+      return
     }
-    const it = ITEM_BY_ID[useId]
-    const scale = scaleOverride ?? ringScaleRef.current
-    let q = 'OK'
-    let qMult = 1.0
-    if (scale <= 0.3) { q = 'Excellent'; qMult = 2.0 }
-    else if (scale <= 0.45) { q = 'Great'; qMult = 1.6 }
-    else if (scale <= 0.6) { q = 'Nice'; qMult = 1.25 }
-    setQuality(q)
-    setThrowState('throwing')
-
-    const mult = (it?.mult || 1) * qMult * (curveball ? 1.2 : 1) * (berryUsed ? 1.5 : 1) * (weatherBoost ? 1.2 : 1) * (pokemonState === 'dodge' ? 0.5 : 1)
-    const critical = Math.random() < 0.05 && q !== 'OK' && q !== 'Miss'
-
+    setThrowsUsed(t => t + 1)
+    const s = ringRef.current
+    let q = 'OK', qm = 1
+    if (s <= 0.30) { q = 'Excellent'; qm = 2 } else if (s <= 0.45) { q = 'Great'; qm = 1.6 } else if (s <= 0.62) { q = 'Nice'; qm = 1.25 }
+    if (mon === 'attack') qm *= 0.4 // deflected by attack
+    if (mon === 'dodge') qm *= 0.5
+    setQuality(q); setPhase('throwing')
     setTimeout(() => {
-      setThrowState('wobble')
-      const res = catchTrack(track.id, mult, Math.random() < 0.01)
-      const fled = !res.success && Math.random() < 0.12
-      const wobbles = res.success ? (1 + Math.floor(Math.random() * 3)) : (1 + Math.floor(Math.random() * 2))
-      setWobbleCount(wobbles)
-      setTimeout(() => {
-        if (fled) { setThrowState('fled'); removeDrop(drop.id) }
-        else if (res.success) { setThrowState('caught'); markCaught(drop.id); setResult({ ...res, quality: q, mult, critical }) }
-        else { setThrowState('escaped'); setResult({ ...res, quality: q, mult, critical }) }
-      }, wobbles * 600)
-    }, 700)
+      const res = store.attemptCatch({
+        trackId: track.id, ballMult: disc.mult, berryMult: berry?.mult || 1, berryId: berry?.id || null,
+        curveball: curve, qualityMult: qm, quality: q, weatherBoost, source: sp.source || 'wild', shadow: !!sp.shadow,
+      })
+      setResult(res)
+      if (res.success) { setWobbles(3); setPhase('wobble'); setTimeout(() => { setPhase('caught'); store.removeSpawn(sp.id) }, 1900) }
+      else if (res.fled) { setPhase('wobble'); setWobbles(1); setTimeout(() => { setPhase('fled'); store.removeSpawn(sp.id) }, 800) }
+      else { setWobbles(1 + Math.floor(Math.random() * 2)); setPhase('wobble'); setTimeout(() => setPhase('escaped'), 1300) }
+    }, 650)
   }
 
-  // flick handlers
-  const onPointerDown = (e) => {
-    if (throwState !== 'idle') return
-    setDrag({ startX: e.clientX, startY: e.clientY, curX: e.clientX, curY: e.clientY })
+  const onDown = (e) => { if (phase === 'idle') drag.current = { x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, maxDx: 0 } }
+  const onMove = (e) => { if (!drag.current) return; drag.current.x = e.clientX; drag.current.y = e.clientY; drag.current.maxDx = Math.max(drag.current.maxDx, Math.abs(e.clientX - drag.current.x0)); setTrail({ ...drag.current }) }
+  const onUp = () => {
+    if (!drag.current) return
+    const dy = drag.current.y0 - drag.current.y
+    if (drag.current.maxDx > 45) setCurve(true)
+    if (dy > 45) doThrow()
+    drag.current = null; setTrail(null)
   }
-  const onPointerMove = (e) => {
-    if (!drag) return
-    setDrag(d => d ? { ...d, curX: e.clientX, curY: e.clientY } : null)
-  }
-  const onPointerUp = () => {
-    if (!drag) return
-    const dy = drag.startY - drag.curY
-    const dx = drag.curX - drag.startX
-    if (dy > 40) {
-      // flick up -> throw
-      doThrow(ringScaleRef.current)
-    }
-    setDrag(null)
-  }
+  const reset = () => { setPhase('idle'); setResult(null); setQuality(''); setWobbles(0) }
 
-  const resetEncounter = () => {
-    setThrowState('idle')
-    setWobbleCount(0)
-    setResult(null)
-    setQuality('')
-    setBerryUsed(false)
-    setCurveball(false)
-    setRingScale(1)
-    setRingDir(-1)
-    ringScaleRef.current = 1
-    setPokemonState('idle')
-  }
-
-  const close = () => {
-    if (result?.success || throwState === 'fled') removeDrop(drop.id)
-    navigate('/map')
-  }
-
-  const bg = arMode
-    ? 'linear-gradient(to bottom, #87ceeb 0%, #b8e6b8 55%, #5a9a4a 100%)'
-    : 'linear-gradient(to bottom, #5ba3d9 0%, #8fc97a 45%, #4a8a3a 70%, #2d5a2a 100%)'
+  const ringColor = ring <= 0.30 ? '#22c55e' : ring <= 0.45 ? '#eab308' : ring <= 0.62 ? '#f97316' : '#ef4444'
+  const bg = ar ? 'linear-gradient(to bottom,#7dd3fc,#bbf7d0 55%,#65a30d)' : 'linear-gradient(to bottom,#1e1b4b,#155e75 45%,#14532d 75%,#052e16)'
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: bg }}>
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-3">
-        <button onClick={() => navigate('/map')} className="w-9 h-9 rounded-full bg-black/40 flex items-center justify-center text-white">
-          <X size={18} />
-        </button>
+    <div className="fixed inset-0 z-50 flex flex-col overflow-hidden" style={{ background: bg }}>
+      {ar && cameraOn && <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover" />}
+      {ar && !cameraOn && <div className="absolute top-16 self-center z-10 bg-black/50 text-[10px] px-2 py-1 rounded-full text-white">AR: camera unavailable — simulated backdrop</div>}
+      <div className="relative flex items-center justify-between px-4 py-3 z-10">
+        <button onClick={() => navigate('/map')} className="w-9 h-9 rounded-full bg-black/40 flex items-center justify-center text-white"><X size={18} /></button>
         <div className="text-center">
-          <div className="text-sm font-bold text-white drop-shadow">{track.title}</div>
-          <div className="text-[10px] text-white/80 drop-shadow">{track.artist} · CP {cp}</div>
+          <div className="text-sm font-bold text-white drop-shadow">{track.title} {sp.shadow ? '🌑 Shadow' : ''}</div>
+          <div className="text-[10px] text-white/85">{track.artist} · CP {track.atk * 10} · {track.genre}</div>
+          <div className="text-[9px]" style={{ color: diff.color }}>● {diff.label} catch · {Math.round(rate * 100)}%</div>
         </div>
-        <div className="flex items-center gap-2">
-          {weatherBoost && <span className="text-lg" title="Weather boosted">🌤️</span>}
-          <button onClick={() => setArMode(a => !a)} className="px-2 py-1 rounded-full bg-black/40 text-white text-[10px] font-bold">
-            {arMode ? 'AR' : 'AR+'}
-          </button>
-        </div>
+        <button onClick={toggleAr} className="px-2.5 py-1 rounded-full bg-black/40 text-white text-[10px] font-bold">{ar ? 'AR+ ON' : 'AR'}</button>
       </div>
 
-      {/* Arena */}
-      <div
-        className="flex-1 relative flex items-center justify-center"
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerLeave={onPointerUp}
-      >
-        {/* Pokemon + catch ring centered together */}
-        <div className="absolute left-1/2 top-[32%] -translate-x-1/2 -translate-y-1/2">
-          {/* Ground shadow */}
-          <div className="absolute left-1/2 top-[62%] -translate-x-1/2 w-72 h-10 rounded-full bg-black/40 blur-md" />
-          {/* Catch ring */}
-          {throwState === 'idle' && (
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-              {/* inner target circle */}
-              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/40" style={{ width: 60, height: 60 }} />
-              <div className="rounded-full border-4" style={{
-                width: `${ringScale * 360}px`,
-                height: `${ringScale * 360}px`,
-                borderColor: ringColor,
-                boxShadow: `0 0 24px ${ringColor}, inset 0 0 16px ${ringColor}55`,
-              }} />
+      <div className="flex-1 relative flex items-center justify-center touch-none select-none" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp}>
+        <div className="absolute left-1/2 top-[34%] -translate-x-1/2 -translate-y-1/2">
+          <div className="absolute left-1/2 top-[62%] -translate-x-1/2 w-64 h-9 rounded-full bg-black/40 blur-md" />
+          {phase === 'idle' && (
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center">
+              <div className="absolute rounded-full border-2 border-white/50" style={{ width: 56, height: 56 }} />
+              <div className="rounded-full border-4 transition-none" style={{ width: ring * 330, height: ring * 330, borderColor: ringColor, boxShadow: `0 0 22px ${ringColor}` }} />
             </div>
           )}
-          {/* Pokemon */}
-          <div className={`relative transition-all duration-300 ${pokemonState === 'dodge' ? 'translate-x-20 opacity-70' : ''} ${pokemonState === 'attack' ? 'scale-110' : ''}`}>
-            <div className="w-72 h-72 rounded-3xl flex items-center justify-center text-9xl shadow-2xl" style={{ background: `linear-gradient(135deg, hsl(${track.hue},70%,45%), hsl(${(track.hue+60)%360},70%,30%))` }}>
-              🎵
-            </div>
-            {pokemonState === 'attack' && <div className="absolute -top-4 -right-4 text-3xl animate-pulse">⚡</div>}
-            {pokemonState === 'dodge' && <div className="absolute -top-4 -right-4 text-3xl">💨</div>}
-            {track.rarity === 'legendary' && <div className="absolute -top-2 -left-2 text-2xl">👑</div>}
+          <div className={`relative transition-all duration-300 ${mon === 'dodge' ? 'translate-x-24 opacity-70' : ''} ${mon === 'attack' ? 'scale-110 -translate-y-3' : ''} ${phase === 'wobble' || phase === 'caught' ? 'opacity-0 scale-50' : ''}`}>
+            <TrackArt track={track} inst={{ shiny: false, shadow: sp.shadow }} size="xl" rounded="rounded-3xl" />
+            {mon === 'attack' && <div className="absolute -top-4 -right-3 text-3xl animate-pulse">💥</div>}
+            {mon === 'dodge' && <div className="absolute -top-4 -right-3 text-3xl">💨</div>}
+            {weatherBoost && <div className="absolute -top-3 -left-2 text-xl" title="Weather boosted">🌤️</div>}
           </div>
         </div>
-
-        {/* Ball in flight */}
-        {throwState === 'throwing' && (
-          <div className="absolute left-1/2 bottom-24 -translate-x-1/2 text-5xl animate-bounce">⚪</div>
-        )}
-
-        {/* Wobble */}
-        {throwState === 'wobble' && (
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-5xl" style={{ animation: `spin-slow ${0.6 / wobbleCount}s linear infinite` }}>⚪</div>
-        )}
-
-        {/* Drag trajectory preview */}
-        {drag && (
-          <svg className="absolute inset-0 pointer-events-none" width="100%" height="100%">
-            <line x1={drag.startX} y1={drag.startY} x2={drag.curX} y2={drag.curY} stroke="white" strokeWidth="2" strokeDasharray="6 4" opacity="0.7" />
-          </svg>
-        )}
-
-        {/* Quality popup */}
-        {quality && throwState !== 'idle' && throwState !== 'throwing' && throwState !== 'wobble' && (
-          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 text-2xl font-bold text-white drop-shadow-lg" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>
-            {quality}!
-          </div>
-        )}
+        {phase === 'throwing' && <div className="absolute left-1/2 bottom-28 -translate-x-1/2 text-5xl animate-bounce">{disc.icon}</div>}
+        {phase === 'wobble' && <div className="absolute left-1/2 top-[34%] -translate-x-1/2 -translate-y-1/2 text-5xl" style={{ animation: `wobble 0.45s ease-in-out ${wobbles * 2} alternate` }}>{disc.icon}</div>}
+        {trail && <svg className="absolute inset-0 pointer-events-none" width="100%" height="100%"><line x1={trail.x0} y1={trail.y0} x2={trail.x} y2={trail.y} stroke="white" strokeWidth="2" strokeDasharray="6 4" opacity="0.7" /></svg>}
+        {quality && phase !== 'idle' && phase !== 'wobble' && phase !== 'throwing' && <div className="absolute top-[22%] left-1/2 -translate-x-1/2 text-3xl font-black text-white" style={{ textShadow: '0 2px 10px rgba(0,0,0,.9)' }}>{quality}!</div>}
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] text-white/70 bg-black/30 px-2 py-1 rounded-full">Flick up to throw · flick sideways first for curveball {curve ? '🌀 ON' : ''}</div>
       </div>
 
-      {/* Bottom controls */}
-      <div className="px-4 pb-4 space-y-3">
-        {/* Modifiers */}
-        {throwState === 'idle' && (
-          <div className="flex gap-2">
-            <button onClick={() => setCurveball(c => !c)} className={`flex-1 py-2 rounded-xl text-xs font-semibold border ${curveball ? 'border-fuchsia-500 bg-fuchsia-500/20 text-fuchsia-200' : 'border-white/20 bg-black/30 text-white/80'}`}>
-              🌀 Curveball {curveball ? 'ON' : 'OFF'}
-            </button>
-            <button onClick={() => { if (consumeItem('berry')) setBerryUsed(true) }} disabled={berryUsed || !(inventory.berry > 0)} className={`flex-1 py-2 rounded-xl text-xs font-semibold border ${berryUsed ? 'border-red-500 bg-red-500/20 text-red-200' : 'border-white/20 bg-black/30 text-white/80'} disabled:opacity-40`}>
-              🍓 Razz Berry {berryUsed ? 'USED' : `x${inventory.berry || 0}`}
-            </button>
-          </div>
-        )}
-
-        {/* Ball selector + ball */}
-        {throwState === 'idle' && (
-          <div className="flex items-center gap-3">
-            <div className="flex gap-2 overflow-x-auto no-scrollbar flex-1">
-              {ITEMS.filter(i => i.effect === 'catch').map(i => (
-                <button key={i.id} onClick={() => setSelectedItem(i.id)}
-                  className={`shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border ${selectedItem === i.id ? 'border-white bg-white/20' : 'border-white/20 bg-black/30'}`}>
-                  <span className="text-2xl">{i.icon}</span>
-                  <span className="text-[9px] text-white/80">x{inventory[i.id] || 0}</span>
-                </button>
+      <div className="relative px-4 pb-5 space-y-3 z-10">
+        {phase === 'idle' && (
+          <>
+            <div className="flex gap-2">
+              <button onClick={() => setCurve(c => !c)} className={`flex-1 py-2 rounded-xl text-[11px] font-bold border ${curve ? 'border-fuchsia-400 bg-fuchsia-500/25 text-fuchsia-100' : 'border-white/25 bg-black/35 text-white/85'}`}>🌀 Curveball {curve ? 'ON' : 'OFF'}</button>
+              {BERRIES.map(b => (
+                <button key={b.id} onClick={() => applyBerry(b)} disabled={!!berry || !(store.inventory[b.id] > 0)} className={`flex-1 py-2 rounded-xl text-[11px] font-bold border ${berry?.id === b.id ? 'border-amber-400 bg-amber-500/25' : 'border-white/25 bg-black/35 text-white/85'} disabled:opacity-40`}>{b.icon} {b.name.split(' ')[0]} ×{store.inventory[b.id] || 0}</button>
               ))}
             </div>
-            <div className="text-center">
-              <div className="text-4xl mb-1">⚪</div>
-              <div className="text-[9px] text-white/70">Flick up</div>
+            {berry && <div className="text-center text-[10px] text-amber-200">{berry.icon} {berry.name} active{berry.calm ? ' — track calmed' : ''}{berry.candy ? ' — double candy' : ''}</div>}
+            <div className="flex items-end gap-3">
+              <div className="flex gap-2 overflow-x-auto no-scrollbar flex-1">
+                {DISCS.map(d => (
+                  <button key={d.id} onClick={() => setDiscId(d.id)} className={`shrink-0 flex flex-col items-center px-3 py-2 rounded-xl border ${discId === d.id ? 'border-white bg-white/20' : 'border-white/20 bg-black/35'}`}>
+                    <span className="text-2xl">{d.icon}</span><span className="text-[9px] text-white/85">×{store.inventory[d.id] || 0}</span>
+                  </button>
+                ))}
+              </div>
+              <button onClick={doThrow} className="text-center bg-black/30 rounded-2xl px-3 py-2"><div className="text-4xl">{disc.icon}</div><div className="text-[9px] text-white/75">THROW</div></button>
             </div>
-          </div>
+          </>
         )}
-
-        {/* Result */}
-        {(throwState === 'caught' || throwState === 'escaped' || throwState === 'fled') && (
-          <div className="bg-black/60 rounded-2xl p-4 text-center">
-            {throwState === 'fled' ? (
-              <>
-                <div className="text-5xl">🏃</div>
-                <h3 className="mt-2 text-lg font-bold text-amber-400">It fled!</h3>
-                <p className="text-white/80 text-sm">{track.title} ran away.</p>
-              </>
-            ) : throwState === 'caught' ? (
-              <>
-                <div className="text-5xl catch-pop">🎉</div>
-                <h3 className="mt-2 text-lg font-bold text-green-400">Gotcha!</h3>
-                <p className="text-white/80 text-sm">{track.title} was caught!{result?.shiny ? ' ✨ Shiny!' : ''}</p>
-                <div className="mt-2 flex justify-center gap-4 text-sm">
-                  <span className="text-fuchsia-300">+{result?.xp} XP</span>
-                  <span className="text-amber-300">+{result?.coins} coins</span>
-                </div>
-                <div className="mt-1 text-[10px] text-white/60">{result?.quality} throw · x{result?.mult?.toFixed(2)}{result?.critical ? ' · Critical!' : ''}</div>
-              </>
-            ) : (
-              <>
-                <div className="text-5xl">💨</div>
-                <h3 className="mt-2 text-lg font-bold text-red-400">It broke free!</h3>
-                <p className="text-white/80 text-sm">Try again with better timing.</p>
-                <div className="mt-1 text-[10px] text-white/60">{result?.quality} throw</div>
-              </>
-            )}
-            <div className="mt-3 flex gap-3">
-              {throwState === 'escaped' && (
-                <button onClick={resetEncounter} className="flex-1 py-3 rounded-2xl bg-white/20 font-semibold">Try Again</button>
+        {(phase === 'caught' || phase === 'escaped' || phase === 'fled') && (
+          <div className="bg-black/70 rounded-2xl p-4 text-center text-white">
+            {phase === 'fled' ? (<><div className="text-5xl">🏃</div><h3 className="mt-1 text-lg font-bold text-amber-400">It fled!</h3><p className="text-sm text-white/80">{track.title} ran away after {throwsUsed} throw(s).</p></>)
+              : phase === 'caught' ? (<><div className="text-5xl catch-pop">🎉</div><h3 className="mt-1 text-lg font-bold text-emerald-400">{result?.critical ? 'Critical Catch!' : 'Gotcha!'}</h3><p className="text-sm text-white/85">{track.title} was caught!{result?.shiny ? ' ✨ SHINY!' : ''}</p><div className="mt-2 flex justify-center gap-3 text-xs"><span className="text-fuchsia-300">+{result?.xp} XP</span><span className="text-amber-300">+{result?.coins} coins</span><span className="text-violet-300">+{result?.stardust} dust</span><span>🍬 +{result?.candy}</span></div><div className="text-[10px] text-white/60 mt-1">{quality} throw · from {sp.source}</div></>)
+              : (<><div className="text-5xl">💨</div><h3 className="mt-1 text-lg font-bold text-red-400">It broke free!</h3><p className="text-sm text-white/80">Aim for a smaller ring, try a better disc or a berry.</p></>)}
+            <div className="mt-3 flex gap-2">
+              {phase === 'escaped' && <button onClick={reset} className="flex-1 py-3 rounded-2xl bg-white/20 font-bold">Try Again</button>}
+              {phase === 'caught' && result?.inst && (
+                <button onClick={() => { if (p.uid === result.inst.uid && p.status !== 'idle') player.toggle(); else player.play({ uid: result.inst.uid, trackId: result.inst.trackId }) }} className="flex-1 py-3 rounded-2xl bg-white text-black font-bold">
+                  {p.uid === result.inst.uid && p.status === 'playing' ? '⏸ Pause' : p.uid === result.inst.uid && p.status === 'loading' ? '⏳ Finding song…' : '🎧 Listen now'}
+                </button>
               )}
-              <button onClick={close} className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-cyan-500 font-bold">
-                {throwState === 'caught' ? 'Continue' : 'Run'}
-              </button>
+              <button onClick={() => navigate('/map')} className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-cyan-500 font-bold">{phase === 'caught' ? 'Continue' : 'Run'}</button>
             </div>
           </div>
         )}

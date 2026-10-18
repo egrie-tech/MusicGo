@@ -1,37 +1,60 @@
-// Geo helpers
-export function haversine(a, b) {
-  const R = 6371000
-  const toRad = (x) => x * Math.PI / 180
-  const dLat = toRad(b.lat - a.lat)
-  const dLng = toRad(b.lng - a.lng)
-  const lat1 = toRad(a.lat), lat2 = toRad(b.lat)
-  const h = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2
-  return 2 * R * Math.asin(Math.sqrt(h))
+import { generatePois, poiKey, offsetLatLng, distanceMeters } from '../data/pois'
+import { TRACKS, RARITY } from '../data/tracks'
+import { weatherForDate } from '../data/types'
+import { activeEvents, activeCommunityDay } from '../data/events'
+import { seededRand } from '../data/pois'
+
+export { generatePois, poiKey, offsetLatLng, distanceMeters }
+
+export const DEFAULT_CENTER = { lat: 43.4516, lng: -80.4925 } // Kitchener, ON
+
+// biome: coarse genre affinity from latitude so spawns feel location-based
+export function biomeGenres(lat) {
+  const band = Math.abs(Math.round(lat) % 10)
+  const table = [
+    ['Electronic', 'K-Pop'], ['Pop', 'Latin'], ['Rock', 'Electronic'],
+    ['Jazz', 'Classical'], ['Hip-Hop', 'R&B'], ['Indie', 'Pop'],
+    ['Latin', 'Jazz'], ['R&B', 'Hip-Hop'], ['Classical', 'Indie'], ['K-Pop', 'Rock'],
+  ]
+  return table[band % table.length]
 }
 
-export function offsetLatLng(lat, lng, metersNorth, metersEast) {
-  const dLat = metersNorth / 111111
-  const dLng = metersEast / (111111 * Math.cos(lat * Math.PI / 180))
-  return { lat: lat + dLat, lng: lng + dLng }
-}
-
-// Generate random drops around a center point
-export function generateDrops(center, count = 12, radiusM = 250) {
-  const drops = []
-  for (let i = 0; i < count; i++) {
-    const ang = Math.random() * Math.PI * 2
-    const r = 30 + Math.random() * (radiusM - 30)
-    const pos = offsetLatLng(center.lat, center.lng, Math.sin(ang) * r, Math.cos(ang) * r)
-    drops.push({
-      id: `drop-${Date.now()}-${i}`,
-      trackId: null, // assigned by caller
-      lat: pos.lat,
-      lng: pos.lng,
-      expires: Date.now() + 30 * 60 * 1000,
-      caught: false,
-    })
+// weighted track pool given weather + events + community day
+export function spawnPool({ weather, radar = false } = {}) {
+  const wBoost = weather?.boost || []
+  const now = Date.now()
+  const cd = activeCommunityDay(now)
+  const cdTrack = cd ? TRACKS.find(t => t.id === cd.trackId) : null
+  const pool = []
+  for (const t of TRACKS) {
+    let w = t.rarity === 'common' ? 5 : t.rarity === 'uncommon' ? 3 : t.rarity === 'rare' ? 2 : t.rarity === 'epic' ? 1 : 0.4
+    if (wBoost.includes(t.genre)) w *= 2.5
+    if (radar && (t.rarity === 'rare' || t.rarity === 'epic')) w *= 3
+    if (cdTrack && t.id === cdTrack.id) w *= 12
+    for (let i = 0; i < Math.round(w * 4); i++) pool.push(t.id)
   }
-  return drops
+  return pool
 }
 
-export const DEFAULT_CENTER = { lat: 43.4516, lng: -80.4925 } // Kitchener, ON (user region)
+export function pickTrackId(pool, weather) {
+  const id = pool[Math.floor(Math.random() * pool.length)]
+  return id
+}
+
+export function randomWeather() { return weatherForDate() }
+
+export function makeSpawn(center, trackId, source = 'wild') {
+  const ang = Math.random() * Math.PI * 2
+  const r = 40 + Math.random() * 260
+  const pos = offsetLatLng(center.lat, center.lng, Math.sin(ang) * r, Math.cos(ang) * r)
+  return {
+    id: `spawn-${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
+    trackId, lat: pos.lat, lng: pos.lng,
+    expires: Date.now() + (15 + Math.random() * 15) * 60 * 1000,
+    source, // wild | lure | incense | research | raid | rocket | egg
+  }
+}
+
+export const RARITY_COLOR = (r) => ({
+  common: '#9ca3af', uncommon: '#22c55e', rare: '#3b82f6', epic: '#a855f7', legendary: '#f59e0b',
+}[r] || '#fff')

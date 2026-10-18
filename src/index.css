@@ -27,6 +27,8 @@ body {
 .spin-slow { animation: spin-slow 8s linear infinite; }
 @keyframes catch-pop { 0% { transform: scale(0.5); opacity: 0; } 60% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1); } }
 .catch-pop { animation: catch-pop 0.5s ease-out; }
+@keyframes wobble { 0% { transform: translateX(-50%) rotate(-14deg); } 100% { transform: translateX(-50%) rotate(14deg); } }
+.leaflet-popup-content button { cursor: pointer; border: none; font-weight: 700; }
 
 /* glass */
 .glass { background: rgba(255,255,255,0.06); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); }
