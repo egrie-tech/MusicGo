@@ -1,85 +1,80 @@
-// MusicGo track catalog. Each track is a "creature" you can catch in the wild.
+// MusicGo "Pokédex": every catchable track with forms, costumes, shiny/regional
+// variants, mega data, shadow availability, buddy distance and base stats.
+// atk/def/sta mirror the classic attack/defense/stamina model.
 export const GENRES = ['Pop', 'Hip-Hop', 'Rock', 'Electronic', 'Jazz', 'Classical', 'Indie', 'R&B', 'Latin', 'K-Pop']
 
 export const RARITY = {
-  common: { label: 'Common', color: '#9ca3af', xp: 10, catchBase: 0.85 },
-  uncommon: { label: 'Uncommon', color: '#22c55e', xp: 25, catchBase: 0.65 },
-  rare: { label: 'Rare', color: '#3b82f6', xp: 60, catchBase: 0.45 },
-  epic: { label: 'Epic', color: '#a855f7', xp: 150, catchBase: 0.25 },
-  legendary: { label: 'Legendary', color: '#f59e0b', xp: 400, catchBase: 0.12 },
+  common:    { label: 'Common',    color: '#9ca3af', xp: 10,  catchBase: 0.85, cpMult: 1.0 },
+  uncommon:  { label: 'Uncommon',  color: '#22c55e', xp: 25,  catchBase: 0.65, cpMult: 1.15 },
+  rare:      { label: 'Rare',      color: '#3b82f6', xp: 60,  catchBase: 0.45, cpMult: 1.35 },
+  epic:      { label: 'Epic',      color: '#a855f7', xp: 150, catchBase: 0.25, cpMult: 1.7 },
+  legendary: { label: 'Legendary', color: '#f59e0b', xp: 400, catchBase: 0.10, cpMult: 2.4 },
 }
 
-const MOVES = {
-  Pop: { fast: { name: 'Chorus', power: 8, type: 'Pop' }, charged: { name: 'Anthem', power: 35, type: 'Pop', energy: 50 } },
-  'Hip-Hop': { fast: { name: 'Flow', power: 9, type: 'Hip-Hop' }, charged: { name: 'Verse Drop', power: 40, type: 'Hip-Hop', energy: 55 } },
-  Rock: { fast: { name: 'Riff', power: 10, type: 'Rock' }, charged: { name: 'Solo', power: 45, type: 'Rock', energy: 60 } },
-  Electronic: { fast: { name: 'Beat', power: 7, type: 'Electronic' }, charged: { name: 'Drop', power: 50, type: 'Electronic', energy: 65 } },
-  Jazz: { fast: { name: 'Improv', power: 6, type: 'Jazz' }, charged: { name: 'Solo', power: 30, type: 'Jazz', energy: 45 } },
-  Classical: { fast: { name: 'Phrase', power: 5, type: 'Classical' }, charged: { name: 'Crescendo', power: 28, type: 'Classical', energy: 40 } },
-  Indie: { fast: { name: 'Strum', power: 7, type: 'Indie' }, charged: { name: 'Bridge', power: 32, type: 'Indie', energy: 50 } },
-  'R&B': { fast: { name: 'Groove', power: 8, type: 'R&B' }, charged: { name: 'Run', power: 38, type: 'R&B', energy: 55 } },
-  Latin: { fast: { name: 'Clave', power: 9, type: 'Latin' }, charged: { name: 'Salsa', power: 42, type: 'Latin', energy: 60 } },
-  'K-Pop': { fast: { name: 'Choreo', power: 9, type: 'K-Pop' }, charged: { name: 'Comeback', power: 48, type: 'K-Pop', energy: 65 } },
-}
-const t = (id, title, artist, album, genre, rarity, energy, dance, tempo, catchRate, evolvesTo = null, candyCost = 0) => ({
-  id, title, artist, album, genre, rarity, evolvesTo, candyCost,
-  type: genre,
-  moves: MOVES[genre],
-  stats: { energy, dance, tempo, catchRate: catchRate ?? RARITY[rarity].catchBase, cp: energy * 10 + dance * 5 + tempo, hp: 50 + energy },
-  xp: RARITY[rarity].xp,
-  candyReward: RARITY[rarity].xp,
-  buddyCandyPerKm: 1 + (RARITY[rarity].xp > 100 ? 1 : 0),
-  hue: (id * 47 + genre.length * 13) % 360,
+const t = (o) => ({
+  forms: ['Original'], costume: false, regional: null, mega: null, shadow: true,
+  buddyKm: 3, shinyChance: 0.01, ...o,
+  stats: { catchRate: o.catchRate ?? RARITY[o.rarity].catchBase },
 })
 
 export const TRACKS = [
-  t(1, 'Midnight Pulse', 'Nova Ray', 'Neon Nights', 'Electronic', 'common', 82, 78, 128, 0.9),
-  t(2, 'City Lights', 'Aria Voss', 'Afterglow', 'Pop', 'common', 70, 85, 120, 0.88),
-  t(3, 'Concrete Jungle', 'MC Flow', 'Streets', 'Hip-Hop', 'common', 75, 60, 95, 0.85),
-  t(4, 'Static Dreams', 'The Voltz', 'Amplify', 'Rock', 'common', 88, 55, 140, 0.8),
-  t(5, 'Blue Note', 'Miles & Co', 'Smoke & Brass', 'Jazz', 'uncommon', 45, 40, 90, 0.6),
-  t(6, 'Moonlight Sonata (Remix)', 'L. Beethoven', 'Classics Reborn', 'Classical', 'rare', 30, 20, 72, 0.4),
-  t(7, 'Paper Planes', 'Indie Folk', 'Lo-Fi Mornings', 'Indie', 'common', 50, 55, 100, 0.85),
-  t(8, 'Slow Burn', 'Velvet Rose', 'Velvet', 'R&B', 'uncommon', 40, 70, 85, 0.62),
-  t(9, 'Fiesta Caliente', 'Los Ritmos', 'Carnaval', 'Latin', 'common', 80, 92, 132, 0.82),
-  t(10, 'Starlight', 'NEON7', 'K-Wave', 'K-Pop', 'uncommon', 85, 90, 124, 0.6),
-  t(11, 'Deep Ocean', 'Abyss', 'Depths', 'Electronic', 'rare', 60, 65, 110, 0.42),
-  t(12, 'Golden Hour', 'Sunset Drive', 'West Coast', 'Pop', 'uncommon', 65, 75, 118, 0.6),
-  t(13, 'Riot', 'Broken Glass', 'Shatter', 'Rock', 'rare', 95, 50, 150, 0.38),
-  t(14, 'Freestyle Friday', 'DJ Cipher', 'Mixtape Vol.1', 'Hip-Hop', 'uncommon', 78, 68, 98, 0.58),
-  t(15, 'Smoky Room', 'Jazz Cats', 'After Hours', 'Jazz', 'rare', 35, 30, 80, 0.4),
-  t(16, 'Requiem', 'Orchestra Nova', 'Eternal', 'Classical', 'epic', 25, 15, 60, 0.22),
-  t(17, 'Wanderlust', 'The Drifters', 'Roads', 'Indie', 'uncommon', 55, 60, 105, 0.6),
-  t(18, 'Midnight Kiss', 'Sable', 'After Dark', 'R&B', 'rare', 45, 78, 88, 0.4),
-  t(19, 'Baila', 'Carmen Sol', 'Pasión', 'Latin', 'uncommon', 75, 95, 138, 0.58),
-  t(20, 'Catch Me', 'IDOL-X', 'Stage', 'K-Pop', 'rare', 90, 92, 126, 0.38),
-  t(21, 'Aurora', 'Lumina', 'Skyline', 'Electronic', 'epic', 70, 80, 122, 0.2),
-  t(22, 'Echoes', 'Hollow', 'Void', 'Rock', 'epic', 92, 48, 145, 0.18),
-  t(23, 'Crown', 'Kingpin', 'Throne', 'Hip-Hop', 'epic', 85, 70, 100, 0.2),
-  t(24, 'Symphony No.9', 'Maestro', 'Masterworks', 'Classical', 'legendary', 40, 25, 70, 0.1),
-  t(25, 'Neon Tokyo', 'Vapor', 'City Pop', 'Electronic', 'legendary', 88, 85, 128, 0.1),
-  t(26, 'Heartbeat', 'Pulse', 'Alive', 'Pop', 'legendary', 95, 90, 130, 0.1),
-  t(27, 'Underground', 'Cipher', 'Beneath', 'Hip-Hop', 'rare', 72, 62, 96, 0.4),
-  t(28, 'Electric Feel', 'Synthwave', 'Retro', 'Electronic', 'uncommon', 78, 72, 124, 0.58),
-  t(29, 'Acoustic Rain', 'Willow', 'Forest', 'Indie', 'common', 40, 45, 92, 0.85),
-  t(30, 'Soul Fire', 'Ember', 'Heat', 'R&B', 'epic', 60, 82, 90, 0.2),
-  t(31, 'Carnival', 'Brass Band', 'Parade', 'Latin', 'rare', 85, 90, 136, 0.4),
-  t(32, 'Debut', 'Rookie', 'First Step', 'K-Pop', 'common', 75, 80, 120, 0.85),
-  t(33, 'Lofi Study', 'Chill Beats', 'Focus', 'Indie', 'common', 30, 35, 80, 0.9),
-  t(34, 'Anthem', 'United', 'Together', 'Rock', 'legendary', 98, 60, 155, 0.08),
-  t(35, 'Smooth Operator', 'Velvet', 'Late Night', 'Jazz', 'epic', 40, 50, 85, 0.2),
-  t(36, 'Tango', 'Buenos Aires', 'Dance', 'Latin', 'epic', 70, 95, 130, 0.2),
-  t(37, 'Galaxy', 'Cosmos', 'Universe', 'Electronic', 'rare', 65, 70, 115, 0.4),
-  t(38, 'Ballad', 'Crooner', 'Love Songs', 'Pop', 'common', 35, 40, 75, 0.88),
-  t(39, 'Drumline', 'Percussion', 'Beat', 'Rock', 'uncommon', 90, 55, 140, 0.55),
-  t(40, 'Whisper', 'Silent', 'Quiet', 'Indie', 'rare', 25, 30, 70, 0.4),
-  t(41, 'Bass Drop', 'Subwoofer', 'Low End', 'Electronic', 'uncommon', 85, 75, 128, 0.58),
-  t(42, 'Rhyme Scheme', 'Lyricist', 'Bars', 'Hip-Hop', 'common', 70, 65, 95, 0.85),
-  t(43, 'Serenade', 'Strings', 'Romance', 'Classical', 'uncommon', 30, 25, 65, 0.55),
-  t(44, 'Funk It', 'Groove', 'Funkadelic', 'R&B', 'rare', 75, 88, 110, 0.4),
-  t(45, 'K-Wave Anthem', 'IDOL-Y', 'Debut', 'K-Pop', 'epic', 92, 95, 132, 0.2),
+  t({ id: 1,  title: 'Midnight Pulse', artist: 'Nova Ray',      album: 'Neon Nights',      genre: 'Electronic', rarity: 'common',    atk: 82, def: 78, sta: 90,  buddyKm: 3 }),
+  t({ id: 2,  title: 'City Lights',    artist: 'Aria Voss',     album: 'Afterglow',        genre: 'Pop',        rarity: 'common',    atk: 70, def: 85, sta: 88,  buddyKm: 3 }),
+  t({ id: 3,  title: 'Concrete Jungle',artist: 'MC Flow',       album: 'Streets',          genre: 'Hip-Hop',    rarity: 'common',    atk: 75, def: 60, sta: 95,  buddyKm: 3 }),
+  t({ id: 4,  title: 'Static Dreams',  artist: 'The Voltz',     album: 'Amplify',          genre: 'Rock',       rarity: 'common',    atk: 88, def: 55, sta: 85,  buddyKm: 3 }),
+  t({ id: 5,  title: 'Blue Note',      artist: 'Miles & Co',    album: 'Smoke & Brass',    genre: 'Jazz',       rarity: 'uncommon',  atk: 45, def: 40, sta: 70,  buddyKm: 3 }),
+  t({ id: 6,  title: 'Moonlight Sonata (Remix)', artist: 'L. Beethoven', youtubeQuery: 'Beethoven Moonlight Sonata', album: 'Classics Reborn', genre: 'Classical', rarity: 'rare', atk: 30, def: 20, sta: 60, buddyKm: 5, regional: 'Kanto' }),
+  t({ id: 7,  title: 'Paper Planes',   artist: 'Indie Folk',    album: 'Lo-Fi Mornings',   genre: 'Indie',      rarity: 'common',    atk: 50, def: 55, sta: 75,  buddyKm: 3 }),
+  t({ id: 8,  title: 'Slow Burn',      artist: 'Velvet Rose',   album: 'Velvet',           genre: 'R&B',        rarity: 'uncommon',  atk: 40, def: 70, sta: 78,  buddyKm: 3 }),
+  t({ id: 9,  title: 'Fiesta Caliente',artist: 'Los Ritmos',    album: 'Carnaval',         genre: 'Latin',      rarity: 'common',    atk: 80, def: 92, sta: 82,  buddyKm: 3, forms: ['Original', 'Salsa', 'Bachata'] }),
+  t({ id: 10, title: 'Starlight',      artist: 'NEON7',         album: 'K-Wave',           genre: 'K-Pop',      rarity: 'uncommon',  atk: 85, def: 90, sta: 86,  buddyKm: 3, costume: true, forms: ['Original', 'Stage Outfit'] }),
+  t({ id: 11, title: 'Deep Ocean',     artist: 'Abyss',         album: 'Depths',           genre: 'Electronic', rarity: 'rare',      atk: 60, def: 65, sta: 80,  buddyKm: 5 }),
+  t({ id: 12, title: 'Golden Hour',    artist: 'Sunset Drive',  album: 'West Coast',       genre: 'Pop',        rarity: 'uncommon',  atk: 65, def: 75, sta: 84,  buddyKm: 3 }),
+  t({ id: 13, title: 'Riot',           artist: 'Broken Glass',  album: 'Shatter',          genre: 'Rock',       rarity: 'rare',      atk: 95, def: 50, sta: 88,  buddyKm: 5, shadow: true }),
+  t({ id: 14, title: 'Freestyle Friday', artist: 'DJ Cipher',   album: 'Mixtape Vol.1',    genre: 'Hip-Hop',    rarity: 'uncommon',  atk: 78, def: 68, sta: 83,  buddyKm: 3, forms: ['Original', 'Live Freestyle'] }),
+  t({ id: 15, title: 'Smoky Room',     artist: 'Jazz Cats',     album: 'After Hours',      genre: 'Jazz',       rarity: 'rare',      atk: 35, def: 30, sta: 65,  buddyKm: 5 }),
+  t({ id: 16, title: 'Requiem',        artist: 'Orchestra Nova', youtubeQuery: 'Mozart Requiem Lacrimosa',album: 'Eternal',          genre: 'Classical',  rarity: 'epic',      atk: 25, def: 15, sta: 70,  buddyKm: 10 }),
+  t({ id: 17, title: 'Wanderlust',     artist: 'The Drifters',  album: 'Roads',            genre: 'Indie',      rarity: 'uncommon',  atk: 55, def: 60, sta: 76,  buddyKm: 3 }),
+  t({ id: 18, title: 'Midnight Kiss',  artist: 'Sable',         album: 'After Dark',       genre: 'R&B',        rarity: 'rare',      atk: 45, def: 78, sta: 80,  buddyKm: 5, regional: 'Johto' }),
+  t({ id: 19, title: 'Baila',          artist: 'Carmen Sol',    album: 'Pasión',           genre: 'Latin',      rarity: 'uncommon',  atk: 75, def: 95, sta: 81,  buddyKm: 3 }),
+  t({ id: 20, title: 'Catch Me',       artist: 'IDOL-X',        album: 'Stage',            genre: 'K-Pop',      rarity: 'rare',      atk: 90, def: 92, sta: 87,  buddyKm: 5, costume: true }),
+  t({ id: 21, title: 'Aurora',         artist: 'Lumina',        album: 'Skyline',          genre: 'Electronic', rarity: 'epic',      atk: 70, def: 80, sta: 90,  buddyKm: 10, mega: { name: 'Mega Aurora', energy: 200, mult: 1.45 } }),
+  t({ id: 22, title: 'Echoes',         artist: 'Hollow',        album: 'Void',             genre: 'Rock',       rarity: 'epic',      atk: 92, def: 48, sta: 89,  buddyKm: 10, mega: { name: 'Mega Echo', energy: 200, mult: 1.45 } }),
+  t({ id: 23, title: 'Crown',          artist: 'Kingpin',       album: 'Throne',           genre: 'Hip-Hop',    rarity: 'epic',      atk: 85, def: 70, sta: 92,  buddyKm: 10, shadow: true }),
+  t({ id: 24, title: 'Symphony No.9',  artist: 'Maestro', youtubeQuery: 'Beethoven Symphony No. 9 Ode to Joy',       album: 'Masterworks',      genre: 'Classical',  rarity: 'legendary', atk: 40, def: 25, sta: 100, buddyKm: 20 }),
+  t({ id: 25, title: 'Neon Tokyo',     artist: 'Vapor',         album: 'City Pop',         genre: 'Electronic', rarity: 'legendary', atk: 88, def: 85, sta: 88,  buddyKm: 20, regional: 'Kanto' }),
+  t({ id: 26, title: 'Heartbeat',      artist: 'Pulse',         album: 'Alive',            genre: 'Pop',        rarity: 'legendary', atk: 95, def: 90, sta: 95,  buddyKm: 20, costume: true }),
+  t({ id: 27, title: 'Underground',    artist: 'Cipher',        album: 'Beneath',          genre: 'Hip-Hop',    rarity: 'rare',      atk: 72, def: 62, sta: 84,  buddyKm: 5, shadow: true }),
+  t({ id: 28, title: 'Electric Feel',  artist: 'Synthwave',     album: 'Retro',            genre: 'Electronic', rarity: 'uncommon',  atk: 78, def: 72, sta: 82,  buddyKm: 3, forms: ['Original', '80s Mix'] }),
+  t({ id: 29, title: 'Acoustic Rain',  artist: 'Willow',        album: 'Forest',           genre: 'Indie',      rarity: 'common',    atk: 40, def: 45, sta: 72,  buddyKm: 2 }),
+  t({ id: 30, title: 'Soul Fire',      artist: 'Ember',         album: 'Heat',             genre: 'R&B',        rarity: 'epic',      atk: 60, def: 82, sta: 91,  buddyKm: 10, mega: { name: 'Mega Inferno', energy: 250, mult: 1.5 } }),
+  t({ id: 31, title: 'Carnival',       artist: 'Brass Band',    album: 'Parade',           genre: 'Latin',      rarity: 'rare',      atk: 85, def: 90, sta: 86,  buddyKm: 5 }),
+  t({ id: 32, title: 'Debut',          artist: 'Rookie',        album: 'First Step',       genre: 'K-Pop',      rarity: 'common',    atk: 75, def: 80, sta: 84,  buddyKm: 2 }),
+  t({ id: 33, title: 'Lofi Study',     artist: 'Chill Beats',   album: 'Focus',            genre: 'Indie',      rarity: 'common',    atk: 30, def: 35, sta: 68,  buddyKm: 2 }),
+  t({ id: 34, title: 'Anthem',         artist: 'United',        album: 'Together',         genre: 'Rock',       rarity: 'legendary', atk: 98, def: 60, sta: 92,  buddyKm: 20, mega: { name: 'Mega Anthem', energy: 300, mult: 1.55 } }),
+  t({ id: 35, title: 'Smooth Operator',artist: 'Velvet',        album: 'Late Night',       genre: 'Jazz',       rarity: 'epic',      atk: 40, def: 50, sta: 82,  buddyKm: 10 }),
+  t({ id: 36, title: 'Tango',          artist: 'Buenos Aires',  album: 'Dance',            genre: 'Latin',      rarity: 'epic',      atk: 70, def: 95, sta: 88,  buddyKm: 10 }),
+  t({ id: 37, title: 'Galaxy',         artist: 'Cosmos',        album: 'Universe',         genre: 'Electronic', rarity: 'rare',      atk: 65, def: 70, sta: 83,  buddyKm: 5 }),
+  t({ id: 38, title: 'Ballad',         artist: 'Crooner',       album: 'Love Songs',       genre: 'Pop',        rarity: 'common',    atk: 35, def: 40, sta: 74,  buddyKm: 2 }),
+  t({ id: 39, title: 'Drumline',       artist: 'Percussion',    album: 'Beat',             genre: 'Rock',       rarity: 'uncommon',  atk: 90, def: 55, sta: 85,  buddyKm: 3 }),
+  t({ id: 40, title: 'Whisper',        artist: 'Silent',        album: 'Quiet',            genre: 'Indie',      rarity: 'rare',      atk: 25, def: 30, sta: 78,  buddyKm: 5 }),
+  t({ id: 41, title: 'Bass Drop',      artist: 'Subwoofer',     album: 'Low End',          genre: 'Electronic', rarity: 'uncommon',  atk: 85, def: 75, sta: 81,  buddyKm: 3 }),
+  t({ id: 42, title: 'Rhyme Scheme',   artist: 'Lyricist',      album: 'Bars',             genre: 'Hip-Hop',    rarity: 'common',    atk: 70, def: 65, sta: 80,  buddyKm: 2 }),
+  t({ id: 43, title: 'Serenade',       artist: 'Strings', youtubeQuery: 'Mozart Eine kleine Nachtmusik Serenade',       album: 'Romance',          genre: 'Classical',  rarity: 'uncommon',  atk: 30, def: 25, sta: 76,  buddyKm: 3 }),
+  t({ id: 44, title: 'Funk It',        artist: 'Groove',        album: 'Funkadelic',       genre: 'R&B',        rarity: 'rare',      atk: 75, def: 88, sta: 85,  buddyKm: 5 }),
+  t({ id: 45, title: 'K-Wave Anthem',  artist: 'IDOL-Y',        album: 'Debut',            genre: 'K-Pop',      rarity: 'epic',      atk: 92, def: 95, sta: 90,  buddyKm: 10 }),
+  t({ id: 46, title: 'Crescendo',      artist: 'Maestro Cells', album: 'The Lost Session', genre: 'Classical',  rarity: 'legendary', atk: 99, def: 99, sta: 99,  buddyKm: 20, shadow: false }),
 ]
 
-export function getTrack(id) { return TRACKS.find(t => t.id === id) }
-
 export const TRACK_BY_ID = Object.fromEntries(TRACKS.map(t => [t.id, t]))
+export function getTrack(id) { return TRACK_BY_ID[id] }
+
+// shiny roll helper
+export function rollShiny(track) {
+  return Math.random() < (track.shinyChance ?? 0.01)
+}
+
+export const GENRE_EMOJI = {
+  Pop: '🎤', 'Hip-Hop': '🎧', Rock: '🎸', Electronic: '🎹', Jazz: '🎷',
+  Classical: '🎻', Indie: '🍂', 'R&B': '💜', Latin: '💃', 'K-Pop': '⭐',
+}
