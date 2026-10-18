@@ -50,7 +50,10 @@ export default function App() {
           <Route path="*" element={<Navigate to="/map" replace />} />
         </Routes>
       </div>
-      {!isEncounter && <MiniPlayer />}
+      {/* MiniPlayer hosts the YouTube iframe — it must stay mounted on the
+          encounter screen too, or "Listen now" after a catch can never
+          start playback (it docks at the top there instead, see MiniPlayer) */}
+      <MiniPlayer />
       {!isEncounter && <BottomNav />}
     </div>
   )

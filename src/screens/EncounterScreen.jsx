@@ -5,13 +5,14 @@ import { TRACK_BY_ID, GENRE_EMOJI } from '../data/tracks'
 import { DISCS, BERRIES } from '../data/items'
 import { catchDifficulty, catchSuccessRate } from '../utils/game'
 import TrackArt from '../components/TrackArt'
-import { player } from '../utils/player'
+import { player, usePlayer } from '../utils/player'
 import { X } from 'lucide-react'
 
 export default function EncounterScreen() {
   const { spawnId } = useParams()
   const navigate = useNavigate()
   const store = useStore()
+  const p = usePlayer()
   const spawn = (store.spawns || []).find(s => s.id === spawnId)
   const [cachedSpawn, setCachedSpawn] = useState(spawn || null)
   useEffect(() => { if (spawn) setCachedSpawn(spawn) }, [spawn])
@@ -194,7 +195,11 @@ export default function EncounterScreen() {
               : (<><div className="text-5xl">💨</div><h3 className="mt-1 text-lg font-bold text-red-400">It broke free!</h3><p className="text-sm text-white/80">Aim for a smaller ring, try a better disc or a berry.</p></>)}
             <div className="mt-3 flex gap-2">
               {phase === 'escaped' && <button onClick={reset} className="flex-1 py-3 rounded-2xl bg-white/20 font-bold">Try Again</button>}
-              {phase === 'caught' && result?.inst && <button onClick={() => player.play({ uid: result.inst.uid, trackId: result.inst.trackId })} className="flex-1 py-3 rounded-2xl bg-white text-black font-bold">🎧 Listen now</button>}
+              {phase === 'caught' && result?.inst && (
+                <button onClick={() => { if (p.uid === result.inst.uid && p.status !== 'idle') player.toggle(); else player.play({ uid: result.inst.uid, trackId: result.inst.trackId }) }} className="flex-1 py-3 rounded-2xl bg-white text-black font-bold">
+                  {p.uid === result.inst.uid && p.status === 'playing' ? '⏸ Pause' : p.uid === result.inst.uid && p.status === 'loading' ? '⏳ Finding song…' : '🎧 Listen now'}
+                </button>
+              )}
               <button onClick={() => navigate('/map')} className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-cyan-500 font-bold">{phase === 'caught' ? 'Continue' : 'Run'}</button>
             </div>
           </div>

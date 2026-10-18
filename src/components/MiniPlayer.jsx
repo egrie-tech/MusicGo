@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { player, usePlayer, compositionInfo } from '../utils/player'
 import { createYtPlayer, ytPause, ytSeekTo, ytPlay, ytDestroy } from '../utils/youtube'
 import { TRACK_BY_ID } from '../data/tracks'
@@ -13,6 +13,7 @@ const YT_SLOT = 'musicgo-yt-slot'
 export default function MiniPlayer() {
   const p = usePlayer()
   const navigate = useNavigate()
+  const onEncounter = useLocation().pathname.startsWith('/encounter')
   const recordListen = useStore(s => s.recordListen)
   const collection = useStore(s => s.collection) || {}
   const [expanded, setExpanded] = useState(false)
@@ -76,7 +77,7 @@ export default function MiniPlayer() {
   const loading = p.status === 'loading'
 
   return (
-    <div className="absolute left-2 right-2 z-[60]" style={{ bottom: 76 }}>
+    <div className="absolute left-2 right-2 z-[60]" style={onEncounter ? { top: 64 } : { bottom: 76 }}>
       <div className="glass rounded-2xl overflow-hidden shadow-2xl shadow-black/60" style={{ background: 'rgba(15,10,30,0.94)' }}>
         <button className="w-full flex items-center gap-3 px-3 pt-2 pb-1 text-left" onClick={() => setExpanded(e => !e)}>
           <div className={p.status === 'playing' ? 'float' : ''}><TrackArt track={track} inst={inst} size="md" /></div>
